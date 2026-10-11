@@ -1,0 +1,28 @@
+name: emarket
+
+services:
+  emarket-backend:
+    container_name: javascript-backend
+    image: node:22
+    working_dir: /var/www/html
+    ports:
+      - "4520:4520"
+    environment:
+      PORT: "4520"
+    command: sh -c "npm install && npm run dev"
+    volumes:
+      - ../backend:/var/www/html
+    restart: unless-stopped
+
+  emarket-frontend:
+    container_name: javascript-frontend
+    image: node:22
+    working_dir: /var/www/html
+    ports:
+      - "4521:4521"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 4521"
+    volumes:
+      - ../frontend:/var/www/html
+    depends_on:
+      - emarket-backend
+    restart: unless-stopped
