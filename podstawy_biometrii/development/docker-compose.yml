@@ -1,0 +1,15 @@
+name: biometria
+
+services:
+  biometria-frontend:
+    container_name: biometria-frontend
+    image: node:22
+    working_dir: /var/www/html
+    ports:
+      - "4510:4510"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 4510"
+    volumes:
+      - ../frontend:/var/www/html
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
