@@ -7,8 +7,8 @@ Sklep nazywa się EMarket. Katalog jest ogólny: kategorie i produkty.
 ## Zespół
 
 - Gabriela Czajkowska
-- Maciej Iwaniuk
-- Kacper Popławski (lider)
+- Maciej Iwaniuk (lider)
+- Kacper Popławski
 
 ## Stack
 
