@@ -1,11 +1,20 @@
-export function toGrayscale(imageData) {
-  const { data } = imageData
-  const gray = new Uint8Array(data.length / 4)
+const wagaKanaluCzerwonego = 0.299
+const wagaKanaluZielonego = 0.587
+const wagaKanaluNiebieskiego = 0.114
 
-  for (let i = 0, pixel = 0; i < data.length; i += 4, pixel++) {
-    const value = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2])
-    gray[pixel] = Math.min(255, Math.max(0, value))
+export function doSkaliSzarosci(daneObrazu) {
+  const bajtyPikseli = daneObrazu.data
+  const pikseleWSkaliSzarosci = new Uint8Array(bajtyPikseli.length / 4)
+
+  for (let indeksBajtu = 0, indeksPiksela = 0; indeksBajtu < bajtyPikseli.length; indeksBajtu += 4, indeksPiksela++) {
+    const kanalCzerwony = bajtyPikseli[indeksBajtu]
+    const kanalZielony = bajtyPikseli[indeksBajtu + 1]
+    const kanalNiebieski = bajtyPikseli[indeksBajtu + 2]
+    const jasnoscPiksela = Math.round(
+      wagaKanaluCzerwonego * kanalCzerwony + wagaKanaluZielonego * kanalZielony + wagaKanaluNiebieskiego * kanalNiebieski,
+    )
+    pikseleWSkaliSzarosci[indeksPiksela] = Math.min(255, Math.max(0, jasnoscPiksela))
   }
 
-  return gray
+  return pikseleWSkaliSzarosci
 }

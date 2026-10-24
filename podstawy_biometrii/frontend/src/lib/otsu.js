@@ -1,40 +1,42 @@
-import { histogram } from './histogram.js'
+import { zbudujHistogramJasnosci } from './histogram.js'
 
-export function otsuThreshold(gray) {
-  const bins = histogram(gray)
-  const total = gray.length
-  if (total === 0) return 0
+export function progOtsu(pikseleWSkaliSzarosci) {
+  const histogramJasnosci = zbudujHistogramJasnosci(pikseleWSkaliSzarosci)
+  const liczbaPikseli = pikseleWSkaliSzarosci.length
+  if (liczbaPikseli === 0) return 0
 
-  let sumAll = 0
-  for (let level = 0; level < 256; level++) {
-    sumAll += level * bins[level]
+  let sumaJasnosciWszystkich = 0
+  for (let kandydatNaProg = 0; kandydatNaProg < 256; kandydatNaProg++) {
+    const liczbaPikseliOTejJasnosci = histogramJasnosci[kandydatNaProg]
+    sumaJasnosciWszystkich += kandydatNaProg * liczbaPikseliOTejJasnosci
   }
 
-  let sumBackground = 0
-  let weightBackground = 0
-  let bestVariance = -1
-  let bestLevel = 0
+  let sumaJasnosciTla = 0
+  let liczbaPikseliTla = 0
+  let najlepszaWariancjaMiedzyklasowa = -1
+  let najlepszyProg = 0
 
-  for (let level = 0; level < 256; level++) {
-    weightBackground += bins[level]
-    if (weightBackground === 0) continue
+  for (let kandydatNaProg = 0; kandydatNaProg < 256; kandydatNaProg++) {
+    const liczbaPikseliOTejJasnosci = histogramJasnosci[kandydatNaProg]
+    liczbaPikseliTla += liczbaPikseliOTejJasnosci
+    if (liczbaPikseliTla === 0) continue
 
-    const weightForeground = total - weightBackground
-    if (weightForeground === 0) break
+    const liczbaPikseliPierwszegoPlanu = liczbaPikseli - liczbaPikseliTla
+    if (liczbaPikseliPierwszegoPlanu === 0) break
 
-    sumBackground += level * bins[level]
-    const meanBackground = sumBackground / weightBackground
-    const meanForeground = (sumAll - sumBackground) / weightForeground
-    const difference = meanBackground - meanForeground
-    const variance = weightBackground * weightForeground * difference * difference
+    sumaJasnosciTla += kandydatNaProg * liczbaPikseliOTejJasnosci
+    const sredniaJasnoscTla = sumaJasnosciTla / liczbaPikseliTla
+    const sredniaJasnoscPierwszegoPlanu = (sumaJasnosciWszystkich - sumaJasnosciTla) / liczbaPikseliPierwszegoPlanu
+    const roznicaSrednichJasnosci = sredniaJasnoscTla - sredniaJasnoscPierwszegoPlanu
+    const wariancjaMiedzyklasowa = liczbaPikseliTla * liczbaPikseliPierwszegoPlanu * roznicaSrednichJasnosci * roznicaSrednichJasnosci
 
     // Remis (puste kubełki między dwiema grupami) rozstrzygamy wyższym progiem,
     // żeby reguła "jasność >= próg" nadal oddzielała ciemne piksele od jasnych.
-    if (variance >= bestVariance) {
-      bestVariance = variance
-      bestLevel = level
+    if (wariancjaMiedzyklasowa >= najlepszaWariancjaMiedzyklasowa) {
+      najlepszaWariancjaMiedzyklasowa = wariancjaMiedzyklasowa
+      najlepszyProg = kandydatNaProg
     }
   }
 
-  return bestLevel
+  return najlepszyProg
 }

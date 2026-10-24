@@ -1,170 +1,176 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { histogram } from './lib/histogram.js'
-import { toGrayscale } from './lib/grayscale.js'
-import { niblack } from './lib/niblack.js'
-import { otsuThreshold } from './lib/otsu.js'
-import { drawHistogram, paintMask } from './lib/paint.js'
-import { applyThreshold } from './lib/threshold.js'
+import { zbudujHistogramJasnosci } from './lib/histogram.js'
+import { doSkaliSzarosci } from './lib/grayscale.js'
+import { zastosujProgNiblacka } from './lib/niblack.js'
+import { progOtsu } from './lib/otsu.js'
+import { narysujHistogramJasnosci, namalujObrazBinarny } from './lib/paint.js'
+import { zastosujProg } from './lib/threshold.js'
 
-const MAX_EDGE = 1600
+const maksymalnaDlugoscKrawedziObrazu = 1600
 
-const methods = [
-  { id: 'threshold', label: 'Progowa' },
+const metodyBinaryzacji = [
+  { id: 'progowa', label: 'Progowa' },
   { id: 'otsu', label: 'Otsu' },
   { id: 'niblack', label: 'Niblack' },
 ]
 
-const method = ref('threshold')
-const threshold = ref(128)
-const windowSize = ref(15)
-const k = ref(-0.2)
-const fileName = ref('')
-const errorMessage = ref('')
-const hasImage = ref(false)
-const shownThreshold = ref(null)
+const wybranaMetoda = ref('progowa')
+const progReczny = ref(128)
+const rozmiarOknaNiblacka = ref(15)
+const wspolczynnikNiblacka = ref(-0.2)
+const nazwaWybranegoPliku = ref('')
+const komunikatBledu = ref('')
+const czyJestObraz = ref(false)
+const wyswietlanyProg = ref(null)
 
-const fileInput = ref(null)
-const sourceCanvas = ref(null)
-const resultCanvas = ref(null)
-const histogramCanvas = ref(null)
+const elementWyboruPliku = ref(null)
+const plotnoWejsciowe = ref(null)
+const plotnoWynikowe = ref(null)
+const plotnoHistogramu = ref(null)
 
-let gray = null
-let bins = null
-let width = 0
-let height = 0
-let paintFrame = 0
+let pikseleWSkaliSzarosci = null
+let histogramJasnosci = null
+let szerokoscObrazu = 0
+let wysokoscObrazu = 0
+let identyfikatorKlatkiRenderowania = 0
 
-const kLabel = computed(() => Number(k.value).toFixed(2))
+const etykietaWspolczynnikaNiblacka = computed(() => Number(wspolczynnikNiblacka.value).toFixed(2))
 
-const histogramNote = computed(() => {
-  if (!hasImage.value) {
+const opisHistogramu = computed(() => {
+  if (!czyJestObraz.value) {
     return 'Rozkład jasności pojawi się po wczytaniu obrazu.'
   }
-  if (method.value === 'niblack') {
+  if (wybranaMetoda.value === 'niblack') {
     return 'Niblack liczy próg osobno w każdym oknie: średnia + k * odchylenie. Histogram nie ma jednej kreski.'
   }
-  if (method.value === 'otsu') {
-    return `Próg Otsu: ${shownThreshold.value}. Piksel jaśniejszy lub równy progowi jest biały.`
+  if (wybranaMetoda.value === 'otsu') {
+    return `Próg Otsu: ${wyswietlanyProg.value}. Piksel jaśniejszy lub równy progowi jest biały.`
   }
-  return `Próg: ${threshold.value}. Piksel jaśniejszy lub równy progowi jest biały.`
+  return `Próg: ${progReczny.value}. Piksel jaśniejszy lub równy progowi jest biały.`
 })
 
-function openFile() {
-  fileInput.value?.click()
+function otworzWyborPliku() {
+  elementWyboruPliku.value?.click()
 }
 
-async function onFile(event) {
-  const file = event.target.files?.[0]
-  event.target.value = ''
-  if (!file) return
+async function poWybraniuPliku(zdarzenie) {
+  const wybranyPlik = zdarzenie.target.files?.[0]
+  zdarzenie.target.value = ''
+  if (!wybranyPlik) return
 
-  errorMessage.value = ''
+  komunikatBledu.value = ''
   try {
-    const bitmap = await openBitmap(file)
-    fileName.value = file.name
-    await loadBitmap(bitmap)
-    bitmap.close()
+    const bitmapaObrazu = await utworzBitmapeZPliku(wybranyPlik)
+    nazwaWybranegoPliku.value = wybranyPlik.name
+    await wczytajBitmapeObrazu(bitmapaObrazu)
+    bitmapaObrazu.close()
   }
   catch {
-    errorMessage.value = 'Nie udało się odczytać tego pliku.'
+    komunikatBledu.value = 'Nie udało się odczytać tego pliku.'
   }
 }
 
-async function openBitmap(file) {
+async function utworzBitmapeZPliku(wybranyPlik) {
   try {
-    return await createImageBitmap(file, { imageOrientation: 'from-image' })
+    return await createImageBitmap(wybranyPlik, { imageOrientation: 'from-image' })
   }
   catch {
-    return await createImageBitmap(file)
+    return await createImageBitmap(wybranyPlik)
   }
 }
 
-async function loadBitmap(bitmap) {
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
-  width = Math.max(1, Math.round(bitmap.width * scale))
-  height = Math.max(1, Math.round(bitmap.height * scale))
-  hasImage.value = true
+async function wczytajBitmapeObrazu(bitmapaObrazu) {
+  const wspolczynnikPomniejszenia = Math.min(1, maksymalnaDlugoscKrawedziObrazu / Math.max(bitmapaObrazu.width, bitmapaObrazu.height))
+  szerokoscObrazu = Math.max(1, Math.round(bitmapaObrazu.width * wspolczynnikPomniejszenia))
+  wysokoscObrazu = Math.max(1, Math.round(bitmapaObrazu.height * wspolczynnikPomniejszenia))
+  czyJestObraz.value = true
   await nextTick()
 
-  const canvas = sourceCanvas.value
-  canvas.width = width
-  canvas.height = height
-  const context = canvas.getContext('2d', { willReadFrequently: true })
-  context.imageSmoothingEnabled = true
-  context.imageSmoothingQuality = 'high'
-  context.drawImage(bitmap, 0, 0, width, height)
+  const plotnoZrodla = plotnoWejsciowe.value
+  plotnoZrodla.width = szerokoscObrazu
+  plotnoZrodla.height = wysokoscObrazu
+  const kontekstRysowania = plotnoZrodla.getContext('2d', { willReadFrequently: true })
+  kontekstRysowania.imageSmoothingEnabled = true
+  kontekstRysowania.imageSmoothingQuality = 'high'
+  kontekstRysowania.drawImage(bitmapaObrazu, 0, 0, szerokoscObrazu, wysokoscObrazu)
 
-  gray = toGrayscale(context.getImageData(0, 0, width, height))
-  bins = histogram(gray)
-  render()
+  pikseleWSkaliSzarosci = doSkaliSzarosci(kontekstRysowania.getImageData(0, 0, szerokoscObrazu, wysokoscObrazu))
+  histogramJasnosci = zbudujHistogramJasnosci(pikseleWSkaliSzarosci)
+  wyrenderujBinaryzacje()
 }
 
-function render() {
-  if (!gray || !bins || !resultCanvas.value || !histogramCanvas.value) return
+function wyrenderujBinaryzacje() {
+  if (!pikseleWSkaliSzarosci || !histogramJasnosci || !plotnoWynikowe.value || !plotnoHistogramu.value) return
 
-  let binary
-  let mark = null
+  let pikseleBinarne
+  let poziomProgu = null
 
-  if (method.value === 'otsu') {
-    mark = otsuThreshold(gray)
-    binary = applyThreshold(gray, mark)
+  if (wybranaMetoda.value === 'otsu') {
+    poziomProgu = progOtsu(pikseleWSkaliSzarosci)
+    pikseleBinarne = zastosujProg(pikseleWSkaliSzarosci, poziomProgu)
   }
-  else if (method.value === 'niblack') {
-    binary = niblack(gray, width, height, Number(windowSize.value), Number(k.value))
+  else if (wybranaMetoda.value === 'niblack') {
+    pikseleBinarne = zastosujProgNiblacka(
+      pikseleWSkaliSzarosci,
+      szerokoscObrazu,
+      wysokoscObrazu,
+      Number(rozmiarOknaNiblacka.value),
+      Number(wspolczynnikNiblacka.value),
+    )
   }
   else {
-    mark = Number(threshold.value)
-    binary = applyThreshold(gray, mark)
+    poziomProgu = Number(progReczny.value)
+    pikseleBinarne = zastosujProg(pikseleWSkaliSzarosci, poziomProgu)
   }
 
-  shownThreshold.value = mark
-  paintMask(resultCanvas.value, binary, width, height)
+  wyswietlanyProg.value = poziomProgu
+  namalujObrazBinarny(plotnoWynikowe.value, pikseleBinarne, szerokoscObrazu, wysokoscObrazu)
 
-  if (!drawHistogram(histogramCanvas.value, bins, mark)) {
+  if (!narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, poziomProgu)) {
     requestAnimationFrame(() => {
-      if (bins && histogramCanvas.value) {
-        drawHistogram(histogramCanvas.value, bins, shownThreshold.value)
+      if (histogramJasnosci && plotnoHistogramu.value) {
+        narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, wyswietlanyProg.value)
       }
     })
   }
 }
 
-function scheduleRender() {
-  if (!gray) return
-  cancelAnimationFrame(paintFrame)
-  paintFrame = requestAnimationFrame(render)
+function zaplanujRenderBinaryzacji() {
+  if (!pikseleWSkaliSzarosci) return
+  cancelAnimationFrame(identyfikatorKlatkiRenderowania)
+  identyfikatorKlatkiRenderowania = requestAnimationFrame(wyrenderujBinaryzacje)
 }
 
-function savePng() {
-  const canvas = resultCanvas.value
-  if (!canvas || !hasImage.value) return
+function zapiszWynikJakoPng() {
+  const plotnoWyniku = plotnoWynikowe.value
+  if (!plotnoWyniku || !czyJestObraz.value) return
 
-  canvas.toBlob((blob) => {
-    if (!blob) return
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'wynik.png'
-    link.click()
-    URL.revokeObjectURL(url)
+  plotnoWyniku.toBlob((blobPng) => {
+    if (!blobPng) return
+    const adresPobrania = URL.createObjectURL(blobPng)
+    const linkPobrania = document.createElement('a')
+    linkPobrania.href = adresPobrania
+    linkPobrania.download = 'wynik.png'
+    linkPobrania.click()
+    URL.revokeObjectURL(adresPobrania)
   }, 'image/png')
 }
 
-function onResize() {
-  if (!bins || !histogramCanvas.value) return
-  drawHistogram(histogramCanvas.value, bins, shownThreshold.value)
+function przerysujHistogramPoZmianieRozmiaru() {
+  if (!histogramJasnosci || !plotnoHistogramu.value) return
+  narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, wyswietlanyProg.value)
 }
 
-watch([method, threshold, windowSize, k], scheduleRender)
+watch([wybranaMetoda, progReczny, rozmiarOknaNiblacka, wspolczynnikNiblacka], zaplanujRenderBinaryzacji)
 
 onMounted(() => {
-  window.addEventListener('resize', onResize)
+  window.addEventListener('resize', przerysujHistogramPoZmianieRozmiaru)
 })
 
 onBeforeUnmount(() => {
-  window.removeEventListener('resize', onResize)
-  cancelAnimationFrame(paintFrame)
+  window.removeEventListener('resize', przerysujHistogramPoZmianieRozmiaru)
+  cancelAnimationFrame(identyfikatorKlatkiRenderowania)
 })
 </script>
 
@@ -183,82 +189,82 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="border border-neutral-400 bg-white px-3 py-1.5 text-sm hover:bg-neutral-50"
-            @click="openFile"
+            @click="otworzWyborPliku"
           >
             Wczytaj obraz
           </button>
           <button
             type="button"
             class="border border-neutral-400 bg-white px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="!hasImage"
-            @click="savePng"
+            :disabled="!czyJestObraz"
+            @click="zapiszWynikJakoPng"
           >
             Zapisz PNG
           </button>
-          <span v-if="fileName" class="w-full text-sm text-neutral-600">{{ fileName }}</span>
-          <span v-if="errorMessage" class="text-sm text-red-700">{{ errorMessage }}</span>
+          <span v-if="nazwaWybranegoPliku" class="w-full text-sm text-neutral-600">{{ nazwaWybranegoPliku }}</span>
+          <span v-if="komunikatBledu" class="text-sm text-red-700">{{ komunikatBledu }}</span>
           <input
-            ref="fileInput"
+            ref="elementWyboruPliku"
             class="hidden"
             type="file"
             accept="image/*"
-            @change="onFile"
+            @change="poWybraniuPliku"
           >
         </div>
 
-        <fieldset class="mt-4" :disabled="!hasImage">
+        <fieldset class="mt-4" :disabled="!czyJestObraz">
           <legend class="text-sm">
             Metoda
           </legend>
           <div class="mt-2 flex flex-wrap gap-4">
-            <label v-for="item in methods" :key="item.id" class="flex items-center gap-2 text-sm">
-              <input v-model="method" type="radio" name="method" :value="item.id">
-              {{ item.label }}
+            <label v-for="metodaBinaryzacji in metodyBinaryzacji" :key="metodaBinaryzacji.id" class="flex items-center gap-2 text-sm">
+              <input v-model="wybranaMetoda" type="radio" name="method" :value="metodaBinaryzacji.id">
+              {{ metodaBinaryzacji.label }}
             </label>
           </div>
         </fieldset>
 
         <div class="mt-4">
-          <label v-if="method === 'threshold'" class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
-            <span class="w-36">Próg: {{ threshold }}</span>
+          <label v-if="wybranaMetoda === 'progowa'" class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
+            <span class="w-36">Próg: {{ progReczny }}</span>
             <input
-              v-model.number="threshold"
+              v-model.number="progReczny"
               class="w-full disabled:opacity-50"
               type="range"
               min="0"
               max="255"
               step="1"
-              :disabled="!hasImage"
+              :disabled="!czyJestObraz"
             >
           </label>
 
-          <p v-else-if="method === 'otsu'" class="text-sm">
-            Wyliczony próg: {{ shownThreshold ?? 'po wczytaniu obrazu' }}
+          <p v-else-if="wybranaMetoda === 'otsu'" class="text-sm">
+            Wyliczony próg: {{ wyswietlanyProg ?? 'po wczytaniu obrazu' }}
           </p>
 
           <div v-else class="flex flex-col gap-3">
             <label class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
-              <span class="w-36">Okno: {{ windowSize }} px</span>
+              <span class="w-36">Okno: {{ rozmiarOknaNiblacka }} px</span>
               <input
-                v-model.number="windowSize"
+                v-model.number="rozmiarOknaNiblacka"
                 class="w-full disabled:opacity-50"
                 type="range"
                 min="3"
                 max="51"
                 step="2"
-                :disabled="!hasImage"
+                :disabled="!czyJestObraz"
               >
             </label>
             <label class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
-              <span class="w-36">k: {{ kLabel }}</span>
+              <span class="w-36">k: {{ etykietaWspolczynnikaNiblacka }}</span>
               <input
-                v-model.number="k"
+                v-model.number="wspolczynnikNiblacka"
                 class="w-full disabled:opacity-50"
                 type="range"
                 min="-1"
                 max="1"
                 step="0.05"
-                :disabled="!hasImage"
+                :disabled="!czyJestObraz"
               >
             </label>
           </div>
@@ -271,8 +277,8 @@ onBeforeUnmount(() => {
             Wejście
           </figcaption>
           <div class="border border-neutral-300 bg-white">
-            <canvas v-show="hasImage" ref="sourceCanvas" class="block h-auto w-full" />
-            <div v-if="!hasImage" class="flex min-h-64 items-center justify-center px-4 text-center text-sm text-neutral-500">
+            <canvas v-show="czyJestObraz" ref="plotnoWejsciowe" class="block h-auto w-full" />
+            <div v-if="!czyJestObraz" class="flex min-h-64 items-center justify-center px-4 text-center text-sm text-neutral-500">
               Tu pojawi się obraz wejściowy
             </div>
           </div>
@@ -283,8 +289,8 @@ onBeforeUnmount(() => {
             Wynik
           </figcaption>
           <div class="border border-neutral-300 bg-white">
-            <canvas v-show="hasImage" ref="resultCanvas" class="block h-auto w-full" />
-            <div v-if="!hasImage" class="flex min-h-64 items-center justify-center px-4 text-center text-sm text-neutral-500">
+            <canvas v-show="czyJestObraz" ref="plotnoWynikowe" class="block h-auto w-full" />
+            <div v-if="!czyJestObraz" class="flex min-h-64 items-center justify-center px-4 text-center text-sm text-neutral-500">
               Tu pojawi się obraz po binaryzacji
             </div>
           </div>
@@ -296,13 +302,13 @@ onBeforeUnmount(() => {
           Histogram skali szarości
         </h2>
         <div class="border border-neutral-300 bg-white">
-          <canvas v-show="hasImage" ref="histogramCanvas" class="block h-40 w-full" />
-          <div v-if="!hasImage" class="flex h-40 items-center justify-center px-4 text-center text-sm text-neutral-500">
+          <canvas v-show="czyJestObraz" ref="plotnoHistogramu" class="block h-40 w-full" />
+          <div v-if="!czyJestObraz" class="flex h-40 items-center justify-center px-4 text-center text-sm text-neutral-500">
             Histogram pojawi się po wczytaniu obrazu
           </div>
         </div>
         <p class="mt-2 text-sm text-neutral-600">
-          {{ histogramNote }}
+          {{ opisHistogramu }}
         </p>
       </section>
 

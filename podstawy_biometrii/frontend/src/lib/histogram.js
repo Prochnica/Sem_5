@@ -1,9 +1,10 @@
-export function histogram(gray) {
-  const bins = new Uint32Array(256)
+export function zbudujHistogramJasnosci(pikseleWSkaliSzarosci) {
+  const histogramJasnosci = new Uint32Array(256)
 
-  for (let i = 0; i < gray.length; i++) {
-    bins[gray[i]]++
+  for (let indeksPiksela = 0; indeksPiksela < pikseleWSkaliSzarosci.length; indeksPiksela++) {
+    const jasnoscPiksela = pikseleWSkaliSzarosci[indeksPiksela]
+    histogramJasnosci[jasnoscPiksela]++
   }
 
-  return bins
+  return histogramJasnosci
 }

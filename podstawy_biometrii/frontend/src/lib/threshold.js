@@ -1,9 +1,10 @@
-export function applyThreshold(gray, level) {
-  const out = new Uint8Array(gray.length)
+export function zastosujProg(pikseleWSkaliSzarosci, poziomProgu) {
+  const pikseleBinarne = new Uint8Array(pikseleWSkaliSzarosci.length)
 
-  for (let i = 0; i < gray.length; i++) {
-    out[i] = gray[i] >= level ? 255 : 0
+  for (let indeksPiksela = 0; indeksPiksela < pikseleWSkaliSzarosci.length; indeksPiksela++) {
+    const jasnoscPiksela = pikseleWSkaliSzarosci[indeksPiksela]
+    pikseleBinarne[indeksPiksela] = jasnoscPiksela >= poziomProgu ? 255 : 0
   }
 
-  return out
+  return pikseleBinarne
 }

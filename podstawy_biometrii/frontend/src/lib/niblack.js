@@ -1,63 +1,95 @@
-let cache = null
+let pamiecObrazuCalkowego = null
 
-function integralsFor(gray, width, height) {
-  if (cache && cache.gray === gray && cache.width === width && cache.height === height) {
-    return cache
+function zbudujObrazyCalkowe(pikseleWSkaliSzarosci, szerokoscObrazu, wysokoscObrazu) {
+  if (
+    pamiecObrazuCalkowego
+    && pamiecObrazuCalkowego.pikseleWSkaliSzarosci === pikseleWSkaliSzarosci
+    && pamiecObrazuCalkowego.szerokoscObrazu === szerokoscObrazu
+    && pamiecObrazuCalkowego.wysokoscObrazu === wysokoscObrazu
+  ) {
+    return pamiecObrazuCalkowego
   }
 
-  const stride = width + 1
-  const sum = new Float64Array(stride * (height + 1))
-  const sumSq = new Float64Array(stride * (height + 1))
+  // Dodatkowy wiersz i kolumna zer, żeby suma okna nie wychodziła poza tablicę.
+  const dlugoscWierszaObrazuCalkowego = szerokoscObrazu + 1
+  const calkaJasnosci = new Float64Array(dlugoscWierszaObrazuCalkowego * (wysokoscObrazu + 1))
+  const calkaKwadratuJasnosci = new Float64Array(dlugoscWierszaObrazuCalkowego * (wysokoscObrazu + 1))
 
-  for (let y = 1; y <= height; y++) {
-    let rowSum = 0
-    let rowSumSq = 0
-    const grayOffset = (y - 1) * width
+  for (let wierszPiksela = 1; wierszPiksela <= wysokoscObrazu; wierszPiksela++) {
+    let sumaJasnosciWiersza = 0
+    let sumaKwadratuJasnosciWiersza = 0
+    const indeksPoczatkuWiersza = (wierszPiksela - 1) * szerokoscObrazu
 
-    for (let x = 1; x <= width; x++) {
-      const value = gray[grayOffset + x - 1]
-      rowSum += value
-      rowSumSq += value * value
-      const index = y * stride + x
-      sum[index] = sum[index - stride] + rowSum
-      sumSq[index] = sumSq[index - stride] + rowSumSq
+    for (let kolumnaPiksela = 1; kolumnaPiksela <= szerokoscObrazu; kolumnaPiksela++) {
+      const jasnoscPiksela = pikseleWSkaliSzarosci[indeksPoczatkuWiersza + kolumnaPiksela - 1]
+      sumaJasnosciWiersza += jasnoscPiksela
+      sumaKwadratuJasnosciWiersza += jasnoscPiksela * jasnoscPiksela
+      const indeksCalki = wierszPiksela * dlugoscWierszaObrazuCalkowego + kolumnaPiksela
+      calkaJasnosci[indeksCalki] = calkaJasnosci[indeksCalki - dlugoscWierszaObrazuCalkowego] + sumaJasnosciWiersza
+      calkaKwadratuJasnosci[indeksCalki] = calkaKwadratuJasnosci[indeksCalki - dlugoscWierszaObrazuCalkowego] + sumaKwadratuJasnosciWiersza
     }
   }
 
-  cache = { gray, width, height, sum, sumSq, stride }
-  return cache
+  pamiecObrazuCalkowego = {
+    pikseleWSkaliSzarosci,
+    szerokoscObrazu,
+    wysokoscObrazu,
+    calkaJasnosci,
+    calkaKwadratuJasnosci,
+    dlugoscWierszaObrazuCalkowego,
+  }
+  return pamiecObrazuCalkowego
 }
 
-function windowSum(table, stride, x0, y0, x1, y1) {
-  const bottomRight = (y1 + 1) * stride + (x1 + 1)
-  const bottomLeft = (y1 + 1) * stride + x0
-  const topRight = y0 * stride + (x1 + 1)
-  const topLeft = y0 * stride + x0
-  return table[bottomRight] - table[bottomLeft] - table[topRight] + table[topLeft]
+function sumaWewnatrzOkna(tablicaCalki, dlugoscWierszaObrazuCalkowego, lewaKrawedzOkna, gornaKrawedzOkna, prawaKrawedzOkna, dolnaKrawedzOkna) {
+  const indeksPrawegoDolnego = (dolnaKrawedzOkna + 1) * dlugoscWierszaObrazuCalkowego + (prawaKrawedzOkna + 1)
+  const indeksLewegoDolnego = (dolnaKrawedzOkna + 1) * dlugoscWierszaObrazuCalkowego + lewaKrawedzOkna
+  const indeksPrawegoGornego = gornaKrawedzOkna * dlugoscWierszaObrazuCalkowego + (prawaKrawedzOkna + 1)
+  const indeksLewegoGornego = gornaKrawedzOkna * dlugoscWierszaObrazuCalkowego + lewaKrawedzOkna
+  return tablicaCalki[indeksPrawegoDolnego] - tablicaCalki[indeksLewegoDolnego] - tablicaCalki[indeksPrawegoGornego] + tablicaCalki[indeksLewegoGornego]
 }
 
-export function niblack(gray, width, height, windowSize, k) {
-  const { sum, sumSq, stride } = integralsFor(gray, width, height)
-  const radius = Math.floor(windowSize / 2)
-  const out = new Uint8Array(gray.length)
+export function zastosujProgNiblacka(pikseleWSkaliSzarosci, szerokoscObrazu, wysokoscObrazu, rozmiarOkna, wspolczynnikNiblacka) {
+  const { calkaJasnosci, calkaKwadratuJasnosci, dlugoscWierszaObrazuCalkowego } = zbudujObrazyCalkowe(
+    pikseleWSkaliSzarosci,
+    szerokoscObrazu,
+    wysokoscObrazu,
+  )
+  const promienOkna = Math.floor(rozmiarOkna / 2)
+  const pikseleBinarne = new Uint8Array(pikseleWSkaliSzarosci.length)
 
-  for (let y = 0; y < height; y++) {
-    const y0 = Math.max(0, y - radius)
-    const y1 = Math.min(height - 1, y + radius)
+  for (let wierszPiksela = 0; wierszPiksela < wysokoscObrazu; wierszPiksela++) {
+    const gornaKrawedzOkna = Math.max(0, wierszPiksela - promienOkna)
+    const dolnaKrawedzOkna = Math.min(wysokoscObrazu - 1, wierszPiksela + promienOkna)
 
-    for (let x = 0; x < width; x++) {
-      const x0 = Math.max(0, x - radius)
-      const x1 = Math.min(width - 1, x + radius)
-      const area = (x1 - x0 + 1) * (y1 - y0 + 1)
-      const mean = windowSum(sum, stride, x0, y0, x1, y1) / area
-      const meanSquare = windowSum(sumSq, stride, x0, y0, x1, y1) / area
-      const variance = meanSquare - mean * mean
-      const deviation = Math.sqrt(variance > 0 ? variance : 0)
-      const localThreshold = mean + k * deviation
-      const index = y * width + x
-      out[index] = gray[index] >= localThreshold ? 255 : 0
+    for (let kolumnaPiksela = 0; kolumnaPiksela < szerokoscObrazu; kolumnaPiksela++) {
+      const lewaKrawedzOkna = Math.max(0, kolumnaPiksela - promienOkna)
+      const prawaKrawedzOkna = Math.min(szerokoscObrazu - 1, kolumnaPiksela + promienOkna)
+      const liczbaPikseliWOknie = (prawaKrawedzOkna - lewaKrawedzOkna + 1) * (dolnaKrawedzOkna - gornaKrawedzOkna + 1)
+      const sredniaJasnoscWOknie = sumaWewnatrzOkna(
+        calkaJasnosci,
+        dlugoscWierszaObrazuCalkowego,
+        lewaKrawedzOkna,
+        gornaKrawedzOkna,
+        prawaKrawedzOkna,
+        dolnaKrawedzOkna,
+      ) / liczbaPikseliWOknie
+      const sredniaKwadratuJasnosciWOknie = sumaWewnatrzOkna(
+        calkaKwadratuJasnosci,
+        dlugoscWierszaObrazuCalkowego,
+        lewaKrawedzOkna,
+        gornaKrawedzOkna,
+        prawaKrawedzOkna,
+        dolnaKrawedzOkna,
+      ) / liczbaPikseliWOknie
+      const wariancjaWOknie = sredniaKwadratuJasnosciWOknie - sredniaJasnoscWOknie * sredniaJasnoscWOknie
+      const odchylenieStandardoweWOknie = Math.sqrt(wariancjaWOknie > 0 ? wariancjaWOknie : 0)
+      const progLokalny = sredniaJasnoscWOknie + wspolczynnikNiblacka * odchylenieStandardoweWOknie
+      const indeksPiksela = wierszPiksela * szerokoscObrazu + kolumnaPiksela
+      const jasnoscPiksela = pikseleWSkaliSzarosci[indeksPiksela]
+      pikseleBinarne[indeksPiksela] = jasnoscPiksela >= progLokalny ? 255 : 0
     }
   }
 
-  return out
+  return pikseleBinarne
 }
