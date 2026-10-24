@@ -1,8 +1,8 @@
 export const categories = [
-  { id: 1, name: 'Kuchnia', slug: 'kuchnia', swatch: '#8c3f24' },
-  { id: 2, name: 'Elektronika', slug: 'elektronika', swatch: '#2f4a3c' },
-  { id: 3, name: 'Dom', slug: 'dom', swatch: '#3d4c6b' },
-  { id: 4, name: 'Sport', slug: 'sport', swatch: '#6b3d2a' },
+  { id: 1, name: 'Kuchnia', slug: 'kuchnia', backgroundColor: '#8c3f24' },
+  { id: 2, name: 'Elektronika', slug: 'elektronika', backgroundColor: '#2f4a3c' },
+  { id: 3, name: 'Dom', slug: 'dom', backgroundColor: '#3d4c6b' },
+  { id: 4, name: 'Sport', slug: 'sport', backgroundColor: '#6b3d2a' },
 ]
 
 export const products = [
@@ -96,38 +96,59 @@ export function productById(id) {
   return products.find((product) => product.id === Number(id)) ?? null
 }
 
-export function filterProducts({ categorySlug, query, sort }) {
-  let list = products.slice()
+const productViewCountsStorageKey = 'emarket-views'
+
+function readStoredProductViewCounts() {
+  if (typeof localStorage === 'undefined') {
+    return {}
+  }
+  try {
+    const storedViewCountsJson = localStorage.getItem(productViewCountsStorageKey)
+    const storedViewCounts = storedViewCountsJson ? JSON.parse(storedViewCountsJson) : {}
+    return storedViewCounts && typeof storedViewCounts === 'object' ? storedViewCounts : {}
+  } catch {
+    return {}
+  }
+}
+
+export function productViewCount(productId) {
+  return Number(readStoredProductViewCounts()[productId]) || 0
+}
+
+export function recordProductPageView(productId) {
+  const storedViewCounts = readStoredProductViewCounts()
+  const nextViewCount = productViewCount(productId) + 1
+  storedViewCounts[productId] = nextViewCount
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(productViewCountsStorageKey, JSON.stringify(storedViewCounts))
+  }
+  return nextViewCount
+}
+
+export function filterProducts({ categorySlug, searchText, sort }) {
+  let matchingProducts = products.slice()
 
   if (categorySlug) {
     const category = categoryBySlug(categorySlug)
-    list = category ? list.filter((product) => product.categoryId === category.id) : []
+    matchingProducts = category ? matchingProducts.filter((product) => product.categoryId === category.id) : []
   }
 
-  const needle = query?.trim().toLowerCase()
-  if (needle) {
-    list = list.filter((product) => {
-      return product.name.toLowerCase().includes(needle) || product.description.toLowerCase().includes(needle)
+  const normalizedSearchText = searchText?.trim().toLowerCase()
+  if (normalizedSearchText) {
+    matchingProducts = matchingProducts.filter((product) => {
+      return product.name.toLowerCase().includes(normalizedSearchText) || product.description.toLowerCase().includes(normalizedSearchText)
     })
   }
 
   if (sort === 'price_asc') {
-    list.sort((left, right) => left.priceCents - right.priceCents)
+    matchingProducts.sort((leftProduct, rightProduct) => leftProduct.priceCents - rightProduct.priceCents)
   } else if (sort === 'price_desc') {
-    list.sort((left, right) => right.priceCents - left.priceCents)
+    matchingProducts.sort((leftProduct, rightProduct) => rightProduct.priceCents - leftProduct.priceCents)
   } else if (sort === 'name') {
-    list.sort((left, right) => left.name.localeCompare(right.name, 'pl'))
+    matchingProducts.sort((leftProduct, rightProduct) => leftProduct.name.localeCompare(rightProduct.name, 'pl'))
+  } else if (sort === 'popularity') {
+    matchingProducts.sort((leftProduct, rightProduct) => productViewCount(rightProduct.id) - productViewCount(leftProduct.id) || leftProduct.id - rightProduct.id)
   }
 
-  return list
-}
-
-export function slugify(value) {
-  return value
-    .toLowerCase()
-    .replace(/ł/g, 'l')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
+  return matchingProducts
 }

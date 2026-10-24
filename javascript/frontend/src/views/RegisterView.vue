@@ -40,7 +40,7 @@ function onSubmit() {
   <section class="grid gap-10 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1fr)]">
     <div>
       <h1 class="font-display text-4xl tracking-tight">Rejestracja</h1>
-      <p class="mt-3 max-w-sm text-lg">Nowe konto jest zwykłym klientem. Uprawnienie administratora ustawia się kolumną w bazie.</p>
+      <p class="mt-3 max-w-sm text-lg">Nowe konto służy do składania zamówień.</p>
     </div>
 
     <form class="border border-line bg-card p-6" @submit.prevent="onSubmit">

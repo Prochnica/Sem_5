@@ -31,17 +31,17 @@ watch(
   { deep: true },
 )
 
-export const cartLines = computed(() => {
+export const cartLineItems = computed(() => {
   return cart.items
-    .map((item) => {
-      const product = productById(item.productId)
+    .map((cartItem) => {
+      const product = productById(cartItem.productId)
       if (!product) {
         return null
       }
       return {
         product,
-        quantity: item.quantity,
-        lineCents: product.priceCents * item.quantity,
+        quantity: cartItem.quantity,
+        lineTotalCents: product.priceCents * cartItem.quantity,
       }
     })
     .filter(Boolean)
@@ -52,13 +52,13 @@ export const cartCount = computed(() => {
 })
 
 export const cartTotalCents = computed(() => {
-  return cartLines.value.reduce((sum, line) => sum + line.lineCents, 0)
+  return cartLineItems.value.reduce((sumCents, cartLine) => sumCents + cartLine.lineTotalCents, 0)
 })
 
 export function addCartItem(productId, quantity = 1) {
   const product = productById(productId)
   if (!product) {
-    return { ok: false, message: 'Nie ma takiego towaru.' }
+    return { ok: false, message: 'Nie ma takiego produktu.' }
   }
 
   const current = cart.items.find((item) => item.productId === product.id)

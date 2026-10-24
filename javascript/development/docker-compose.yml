@@ -9,6 +9,7 @@ services:
       - "4520:4520"
     environment:
       PORT: "4520"
+      JWT_SECRET: "emarket-dev-secret"
     command: sh -c "npm install && npm run dev"
     volumes:
       - ../backend:/var/www/html

@@ -15,41 +15,41 @@ const category = computed(() => {
 
 const missingCategory = computed(() => typeof route.params.slug === 'string' && !category.value)
 
-const query = computed(() => (typeof route.query.q === 'string' ? route.query.q : ''))
+const searchText = computed(() => (typeof route.query.search === 'string' ? route.query.search : ''))
 const sort = computed(() => (typeof route.query.sort === 'string' ? route.query.sort : ''))
 
-const list = computed(() => {
+const matchingProducts = computed(() => {
   if (missingCategory.value) {
     return []
   }
   return filterProducts({
     categorySlug: category.value?.slug,
-    query: query.value,
+    searchText: searchText.value,
     sort: sort.value,
   })
 })
 
-const countLabel = computed(() => {
-  const count = list.value.length
-  const mod10 = count % 10
-  const mod100 = count % 100
-  if (count === 1) {
+const productCountLabel = computed(() => {
+  const productCount = matchingProducts.value.length
+  const remainderWhenDividedByTen = productCount % 10
+  const remainderWhenDividedByHundred = productCount % 100
+  if (productCount === 1) {
     return '1 pozycja'
   }
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-    return `${count} pozycje`
+  if (remainderWhenDividedByTen >= 2 && remainderWhenDividedByTen <= 4 && (remainderWhenDividedByHundred < 12 || remainderWhenDividedByHundred > 14)) {
+    return `${productCount} pozycje`
   }
-  return `${count} pozycji`
+  return `${productCount} pozycji`
 })
 
 const heading = computed(() => {
   if (category.value) {
     return category.value.name
   }
-  if (query.value) {
-    return `Wyniki dla „${query.value}”`
+  if (searchText.value) {
+    return `Wyniki dla „${searchText.value}”`
   }
-  return 'Towary'
+  return 'Produkty'
 })
 
 function onSort(event) {
@@ -77,7 +77,7 @@ function onSort(event) {
     <div class="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 class="font-display text-4xl tracking-tight">{{ heading }}</h1>
-        <p class="mt-2 text-muted">{{ countLabel }}</p>
+        <p class="mt-2 text-muted">{{ productCountLabel }}</p>
       </div>
       <label class="text-sm">
         <span class="mr-2 text-muted">Sortowanie</span>
@@ -86,12 +86,13 @@ function onSort(event) {
           <option value="price_asc">Cena rosnąco</option>
           <option value="price_desc">Cena malejąco</option>
           <option value="name">Nazwa</option>
+          <option value="popularity">Popularność</option>
         </select>
       </label>
     </div>
 
     <EmptyState
-      v-if="list.length === 0"
+      v-if="matchingProducts.length === 0"
       class="mt-8"
       title="Nic nie pasuje"
       text="Zmień frazę albo wyczyść wyszukiwanie."
@@ -100,7 +101,7 @@ function onSort(event) {
     </EmptyState>
 
     <ul v-else class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <li v-for="product in list" :key="product.id">
+      <li v-for="product in matchingProducts" :key="product.id">
         <ProductCard :product="product" />
       </li>
     </ul>

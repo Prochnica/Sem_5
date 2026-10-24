@@ -2,8 +2,8 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
-import { formatPrice } from '../lib/money.js'
-import { cartLines, cartTotalCents } from '../state/cart.js'
+import { formatPriceFromCents } from '../lib/money.js'
+import { cartLineItems, cartTotalCents } from '../state/cart.js'
 import { placeOrder } from '../state/orders.js'
 import { session } from '../state/session.js'
 
@@ -45,7 +45,7 @@ function onSubmit() {
 </script>
 
 <template>
-  <EmptyState v-if="cartLines.length === 0" title="Koszyk jest pusty" text="Nie ma czego zamawiać.">
+  <EmptyState v-if="cartLineItems.length === 0" title="Koszyk jest pusty" text="Nie ma czego zamawiać.">
     <router-link to="/" class="font-semibold text-copper-dark underline">Wróć do katalogu</router-link>
   </EmptyState>
 
@@ -81,14 +81,14 @@ function onSubmit() {
     <aside class="h-fit border border-line bg-card p-4">
       <h2 class="font-display text-2xl">Podsumowanie</h2>
       <ul class="mt-4 space-y-3 text-sm">
-        <li v-for="line in cartLines" :key="line.product.id" class="flex justify-between gap-3">
-          <span>{{ line.product.name }} × {{ line.quantity }}</span>
-          <span class="tabular-nums">{{ formatPrice(line.lineCents) }}</span>
+        <li v-for="cartLine in cartLineItems" :key="cartLine.product.id" class="flex justify-between gap-3">
+          <span>{{ cartLine.product.name }} × {{ cartLine.quantity }}</span>
+          <span class="tabular-nums">{{ formatPriceFromCents(cartLine.lineTotalCents) }}</span>
         </li>
       </ul>
       <p class="mt-4 flex justify-between border-t border-line pt-3 font-semibold">
         <span>Razem</span>
-        <span class="tabular-nums">{{ formatPrice(cartTotalCents) }}</span>
+        <span class="tabular-nums">{{ formatPriceFromCents(cartTotalCents) }}</span>
       </p>
     </aside>
   </section>

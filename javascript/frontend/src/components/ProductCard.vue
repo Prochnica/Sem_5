@@ -1,8 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { categoryById } from '../data/catalog.js'
+import { categoryById, productViewCount } from '../data/catalog.js'
 import { addCartItem } from '../state/cart.js'
-import PriceTag from './PriceTag.vue'
+import ProductPrice from './ProductPrice.vue'
 
 const props = defineProps({
   product: { type: Object, required: true },
@@ -23,7 +23,7 @@ function onAdd() {
     <router-link :to="`/produkt/${product.slug}`" class="block">
       <div
         class="relative flex aspect-[4/3] items-center justify-center overflow-hidden"
-        :style="{ background: category?.swatch ?? '#241c16' }"
+        :style="{ background: category?.backgroundColor ?? '#241c16' }"
       >
         <span class="emarket-stripe absolute inset-0"></span>
         <span class="font-display relative text-6xl text-paper">{{ initial }}</span>
@@ -37,8 +37,9 @@ function onAdd() {
         </router-link>
       </h2>
       <p class="text-sm text-muted">Dostępne: {{ product.stock }} szt.</p>
+      <p class="text-sm text-muted">Wyświetlenia: {{ productViewCount(product.id) }}</p>
       <div class="mt-auto flex items-end justify-between gap-3 pt-2">
-        <PriceTag :cents="product.priceCents" />
+        <ProductPrice :price-cents="product.priceCents" />
         <button type="button" class="bg-copper px-3 py-2 text-sm font-semibold text-paper hover:bg-copper-dark" @click="onAdd">
           Do koszyka
         </button>

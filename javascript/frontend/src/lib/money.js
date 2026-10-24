@@ -3,14 +3,14 @@ const priceFormat = new Intl.NumberFormat('pl-PL', {
   currency: 'PLN',
 })
 
-export function formatPrice(cents) {
-  return priceFormat.format(cents / 100)
+export function formatPriceFromCents(priceCents) {
+  return priceFormat.format(priceCents / 100)
 }
 
 const dateFormat = new Intl.DateTimeFormat('pl-PL', {
   dateStyle: 'long',
 })
 
-export function formatDate(iso) {
-  return dateFormat.format(new Date(iso))
+export function formatDateFromIsoString(isoDate) {
+  return dateFormat.format(new Date(isoDate))
 }

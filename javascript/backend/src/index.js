@@ -1,10 +1,18 @@
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import cors from 'cors'
 import express from 'express'
+import { initDatabase } from './db/database.js'
+import { sendError } from './errors.js'
 import { authRouter } from './routes/auth.js'
 import { cartRouter } from './routes/cart.js'
 import { categoriesRouter } from './routes/categories.js'
 import { ordersRouter } from './routes/orders.js'
 import { productsRouter } from './routes/products.js'
+
+const rootDir = path.dirname(fileURLToPath(import.meta.url))
+
+initDatabase(path.join(rootDir, '..', 'data', 'emarket.sqlite'))
 
 const app = express()
 
@@ -22,8 +30,10 @@ app.use('/api/cart', cartRouter)
 app.use('/api/orders', ordersRouter)
 
 app.use('/api', (req, res) => {
-  res.status(404).json({ error: 'not_found' })
+  res.status(404).json({ error: 'not_found', message: 'Nie ma takiego adresu' })
 })
+
+app.use(sendError)
 
 const port = Number(process.env.PORT) || 4520
 

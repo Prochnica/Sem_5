@@ -1,5 +1,5 @@
 import { reactive, watch } from 'vue'
-import { cartLines, cartTotalCents, clearCart } from './cart.js'
+import { cartLineItems, cartTotalCents, clearCart } from './cart.js'
 import { session } from './session.js'
 
 const storageKey = 'emarket-orders'
@@ -7,9 +7,9 @@ const lastKey = 'emarket-last-order'
 
 const seedOrder = {
   id: 'EM-1042',
-  email: 'klient@emarket.test',
+  email: 'test1234@wp.pl',
   status: 'wyslane',
-  recipientName: 'Klient testowy',
+  recipientName: 'Jan Kowalski',
   addressLine: 'ul. Prosta 1',
   postalCode: '00-001',
   city: 'Warszawa',
@@ -75,14 +75,14 @@ export function orderById(id) {
 
 export function placeOrder(form) {
   if (!session.user) {
-    return { ok: false, message: 'Zamówienie składa zalogowany klient.' }
+    return { ok: false, message: 'Zaloguj się, żeby złożyć zamówienie.' }
   }
-  if (cartLines.value.length === 0) {
+  if (cartLineItems.value.length === 0) {
     return { ok: false, message: 'Koszyk jest pusty.' }
   }
 
   const order = {
-    id: `EM-${Math.floor(1000 + Math.random() * 9000)}`,
+    id: `EM-${crypto.randomUUID()}`,
     email: session.user.email,
     status: 'zlozone',
     recipientName: form.recipientName.trim(),
@@ -91,11 +91,11 @@ export function placeOrder(form) {
     city: form.city.trim(),
     totalCents: cartTotalCents.value,
     createdAt: new Date().toISOString(),
-    items: cartLines.value.map((line) => ({
-      productId: line.product.id,
-      productName: line.product.name,
-      unitPriceCents: line.product.priceCents,
-      quantity: line.quantity,
+    items: cartLineItems.value.map((cartLine) => ({
+      productId: cartLine.product.id,
+      productName: cartLine.product.name,
+      unitPriceCents: cartLine.product.priceCents,
+      quantity: cartLine.quantity,
     })),
   }
 

@@ -1,10 +1,27 @@
 import { Router } from 'express'
-import { notImplemented } from '../http.js'
+import { getDatabase } from '../db/database.js'
+import { ApiError, handle } from '../errors.js'
 
 export const categoriesRouter = Router()
 
-categoriesRouter.get('/', notImplemented)
-categoriesRouter.get('/:slug', notImplemented)
-categoriesRouter.post('/', notImplemented)
-categoriesRouter.patch('/:id', notImplemented)
-categoriesRouter.delete('/:id', notImplemented)
+function findBySlug(slug) {
+  return getDatabase().prepare('SELECT id, name, slug FROM categories WHERE slug = ?').get(slug)
+}
+
+categoriesRouter.get('/', handle((req, res) => {
+  const categories = getDatabase()
+    .prepare('SELECT id, name, slug FROM categories ORDER BY name')
+    .all()
+
+  res.json(categories)
+}))
+
+categoriesRouter.get('/:slug', handle((req, res) => {
+  const category = findBySlug(req.params.slug)
+
+  if (!category) {
+    throw new ApiError(404, 'not_found', 'Nie ma takiej kategorii')
+  }
+
+  res.json(category)
+}))

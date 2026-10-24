@@ -1,17 +1,16 @@
 import { reactive, watch } from 'vue'
 
-// Makieta sesji na 18.10. Docelowe logowanie idzie przez API.
 const builtInAccounts = [
   {
-    email: 'klient@emarket.test',
-    password: 'klient123',
-    name: 'Klient testowy',
+    email: 'test1234@wp.pl',
+    password: 'test1234',
+    name: 'Jan Kowalski',
     isAdmin: false,
   },
   {
-    email: 'admin@emarket.test',
-    password: 'admin123',
-    name: 'Admin testowy',
+    email: 'admin1234@wp.pl',
+    password: 'admin1234',
+    name: 'Zbigniew Kowalski',
     isAdmin: true,
   },
 ]
@@ -79,7 +78,7 @@ export function loginWithPassword(email, password) {
   session.user = {
     email: account.email,
     name: account.name,
-    isAdmin: account.isAdmin,
+    isAdmin: account.isAdmin === true,
   }
   return { ok: true }
 }

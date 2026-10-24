@@ -1,6 +1,6 @@
 # EMarket
 
-Aplikacja e-commerce (np. uproszczona wersja Amazona lub innego sklepu internetowego) - pozwala na przeglądanie listy towarów i składanie zamówień.
+Aplikacja e-commerce (np. uproszczona wersja Amazona lub innego sklepu internetowego) - pozwala na przeglądanie listy produktów i składanie zamówień.
 
 Sklep nazywa się EMarket. Katalog jest ogólny: kategorie i produkty.
 
@@ -14,20 +14,12 @@ Sklep nazywa się EMarket. Katalog jest ogólny: kategorie i produkty.
 
 Node.js, Express, Vue 3, Vue Router, Tailwind 4, Docker, SQLite.
 
-## Stan na 18.10.2026
+Konta przykładowe, te same w makiecie i w bazie. Oba mają te same akcje. Różnica to kolumna `users.is_admin`:
 
-- Widoki Vue działają na przykładowym katalogu w przeglądarce.
-- Koszyk, logowanie, rejestracja i złożenie zamówienia działają lokalnie (pamięć karty przeglądarki), żeby dało się przejść ścieżkę klienta.
-- Endpointy Express są podpięte, ale metody zwracają `501` i `{ "error": "not_implemented" }`. Wyjątek: `GET /api/health` zwraca `{ "ok": true }`.
-- Schemat SQLite jest w `backend/src/db/schema.sql`. Plik bazy jeszcze nie powstaje. Połączenie w `backend/src/db/database.js` nie jest wołane.
-- Prawdziwy zapis, hasła, JWT albo sesja i spięcie frontu z API są na kolejne zjazdy.
+- `test1234@wp.pl` / `test1234` (Jan Kowalski, `is_admin = 0`)
+- `admin1234@wp.pl` / `admin1234` (Zbigniew Kowalski, `is_admin = 1`)
 
-Konta do przeklikania makiety (to nie są konta w bazie):
-
-- klient: `klient@emarket.test` / `klient123`
-- administrator: `admin@emarket.test` / `admin123`
-
-Docelowo o adminie decyduje kolumna `users.is_admin` (0 albo 1). Wartość zmienia się ręcznie w SQLite, bez osobnego ekranu nadawania roli.
+Gdy `is_admin` to 1, imię i nazwisko w nagłówku sklepu jest czerwone. Nie ma z tego powodu panelu ani innych akcji.
 
 ## Uruchomienie
 
@@ -56,12 +48,16 @@ javascript/
   development/docker-compose.yml
   backend/
     src/index.js
+    src/auth.js        JWT, hasło, requireUser
+    src/errors.js      ApiError i middleware błędów
     src/routes/        auth, categories, products, cart, orders
-    src/db/schema.sql
-    src/db/database.js
-    data/              tu będzie emarket.sqlite
+    src/db/migrations/ pliki SQL odpalane po kolei
+    src/db/database.js otwarcie bazy
+    src/db/migrate.js
+    src/db/seed.js
+    data/              emarket.sqlite, poza gitem
   frontend/
-    src/views/         widoki klienta i panelu
+    src/views/         widoki sklepu
     src/components/
     src/data/catalog.js
     src/state/         lokalny koszyk, sesja, zamówienia
@@ -72,13 +68,12 @@ javascript/
 Jest w zakresie:
 
 - przeglądanie katalogu, kategorii i karty produktu
-- szukanie po nazwie i opisie, sortowanie po cenie i nazwie
+- szukanie po nazwie i opisie, sortowanie po cenie, nazwie i liczbie wyświetleń
 - koszyk: dodanie, zmiana ilości, usunięcie, limit stanu magazynowego
 - rejestracja i logowanie
 - zamówienie tylko po zalogowaniu, z adresem dostawy
 - historia zamówień zalogowanego klienta
 - status zamówienia (`zlozone`, `w_realizacji`, `wyslane`, `anulowane`) zamiast płatności
-- panel administratora: dodawanie, edycja i usuwanie produktów oraz kategorii
 
 ## Encje i relacje
 
@@ -94,7 +89,7 @@ Jest w zakresie:
 
 `categories`: id, name, slug.
 
-`products`: id, category_id, name, slug, description, price_cents, stock, created_at.
+`products`: id, category_id, name, slug, description, price_cents, stock, views, created_at.
 
 `carts`: id, user_id (unikalne).
 
@@ -106,7 +101,32 @@ Jest w zakresie:
 
 ## API
 
-Prefiks `/api`. Na tym etapie każda metoda poza health zwraca 501.
+Prefiks `/api`. Błąd ma postać `{ "error": "validation", "message": "..." }`. Kody: `validation` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409).
+
+Token z logowania albo rejestracji:
+
+```bash
+curl -s -X POST http://localhost:4520/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"admin1234@wp.pl","password":"admin1234"}'
+```
+
+Dalsze wywołania: `-H "Authorization: Bearer TOKEN"`.
+
+Lista produktów przyjmuje `category` (slug), `search` (fragment nazwy lub opisu) i `sort` (`name`, `price_asc`, `price_desc`, `popularity`). `popularity` układa od największej liczby wejść. Wejście to `GET /products/:slug`, które zwiększa `views` o 1.
+
+```bash
+curl -s 'http://localhost:4520/api/products?category=kuchnia&search=deska&sort=price_asc'
+```
+
+`POST /orders` dostaje adres i bierze aktualny koszyk:
+
+```bash
+curl -s -X POST http://localhost:4520/api/orders \
+  -H "Authorization: Bearer TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"recipient_name":"Jan Test","address_line":"Polna 1","postal_code":"00-001","city":"Warszawa"}'
+```
 
 Auth:
 
@@ -115,21 +135,15 @@ Auth:
 - `POST /auth/logout`
 - `GET /auth/me`
 
-Kategorie. Zapis tylko dla administratora:
+Kategorie. Tylko odczyt:
 
 - `GET /categories`
 - `GET /categories/:slug`
-- `POST /categories`
-- `PATCH /categories/:id`
-- `DELETE /categories/:id`
 
-Produkty. Zapis tylko dla administratora. Lista przyjmuje query `category`, `q`, `sort`:
+Produkty. Tylko odczyt. Lista przyjmuje query `category`, `search`, `sort`:
 
 - `GET /products`
 - `GET /products/:slug`
-- `POST /products`
-- `PATCH /products/:id`
-- `DELETE /products/:id`
 
 Koszyk zalogowanego użytkownika:
 
@@ -163,21 +177,13 @@ Po zalogowaniu:
 - `/zamowienie/potwierdzenie`
 - `/konto/zamowienia`
 
-Panel (`is_admin` -> permisja uzytkownika bazuje na kolumnie):
-
-- `/admin/produkty`
-- `/admin/produkty/nowy`
-- `/admin/produkty/:id`
-- `/admin/kategorie`
-- `/brak-dostepu` gdy zalogowany klient wejdzie w panel
-
 Produkty do koszyku mozna dodawac bez konta. Samo złożenie zamówienia wymaga logowania.
 
 ## Podział zadań
 
 - Kacper Popławski (lider): repozytorium, spójność koncepcji, backend, SQLite, zamówienia, prezentacja.
 - Maciej Iwaniuk: katalog, karta produktu, koszyk, checkout.
-- Gabriela Czajkowska: ekrany logowania i rejestracji, panel administratora, opis API w tym pliku.
+- Gabriela Czajkowska: ekrany logowania i rejestracji, opis API w tym pliku.
 
 ## Plan wkładu
 

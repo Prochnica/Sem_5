@@ -7,20 +7,20 @@ import { logout, session } from '../state/session.js'
 
 const route = useRoute()
 const router = useRouter()
-const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const searchText = ref(typeof route.query.search === 'string' ? route.query.search : '')
 
 watch(
-  () => route.query.q,
-  (value) => {
-    query.value = typeof value === 'string' ? value : ''
+  () => route.query.search,
+  (searchQuery) => {
+    searchText.value = typeof searchQuery === 'string' ? searchQuery : ''
   },
 )
 
 const accountLabel = computed(() => session.user?.name ?? 'Logowanie')
 
 function onSearch() {
-  const q = query.value.trim()
-  router.push({ path: '/', query: q ? { q } : {} })
+  const trimmedSearchText = searchText.value.trim()
+  router.push({ path: '/', query: trimmedSearchText ? { search: trimmedSearchText } : {} })
 }
 
 function onLogout() {
@@ -35,13 +35,13 @@ function onLogout() {
       <router-link to="/" class="font-display text-3xl leading-none tracking-tight">EMarket</router-link>
 
       <form class="order-last min-w-[16rem] flex-1 md:order-none" @submit.prevent="onSearch">
-        <label class="sr-only" for="search">Szukaj towaru</label>
+        <label class="sr-only" for="search">Szukaj produktu</label>
         <input
           id="search"
-          v-model="query"
+          v-model="searchText"
           type="search"
-          name="q"
-          placeholder="Szukaj towaru"
+          name="search"
+          placeholder="Szukaj produktu"
           class="w-full border border-paper/30 bg-paper px-3 py-2 text-ink placeholder:text-muted"
         />
       </form>
@@ -49,9 +49,8 @@ function onLogout() {
       <nav class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
         <router-link to="/koszyk" class="hover:text-copper">Koszyk ({{ cartCount }})</router-link>
         <router-link v-if="session.user" to="/konto/zamowienia" class="hover:text-copper">Zamówienia</router-link>
-        <router-link v-if="session.user?.isAdmin" to="/admin/produkty" class="hover:text-copper">Panel</router-link>
         <router-link v-if="!session.user" to="/logowanie" class="hover:text-copper">{{ accountLabel }}</router-link>
-        <span v-else class="text-paper/80">{{ accountLabel }}</span>
+        <span v-else :class="session.user.isAdmin ? 'administrator-name' : 'text-paper/80'">{{ accountLabel }}</span>
         <button v-if="session.user" type="button" class="hover:text-copper" @click="onLogout">Wyloguj</button>
       </nav>
     </div>
@@ -72,6 +71,10 @@ function onLogout() {
 </template>
 
 <style scoped>
+.administrator-name {
+  color: #e23b3b;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

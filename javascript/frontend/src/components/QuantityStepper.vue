@@ -1,15 +1,15 @@
 <script setup>
 const props = defineProps({
   modelValue: { type: Number, required: true },
-  min: { type: Number, default: 1 },
-  max: { type: Number, required: true },
+  minimumQuantity: { type: Number, default: 1 },
+  maximumQuantity: { type: Number, required: true },
 })
 
 const emit = defineEmits(['update:modelValue'])
 
-function setQuantity(next) {
-  const value = Math.min(props.max, Math.max(props.min, next))
-  emit('update:modelValue', value)
+function setQuantity(nextQuantity) {
+  const quantity = Math.min(props.maximumQuantity, Math.max(props.minimumQuantity, nextQuantity))
+  emit('update:modelValue', quantity)
 }
 </script>
 
