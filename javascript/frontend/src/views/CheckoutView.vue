@@ -52,7 +52,6 @@ function onSubmit() {
   <section v-else class="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
     <form @submit.prevent="onSubmit">
       <h1 class="font-display text-4xl tracking-tight">Adres dostawy</h1>
-      <p class="mt-2 text-muted">Płatność jest oznaczona statusem zamówienia. Nie ma bramki płatniczej.</p>
 
       <label class="mt-6 block text-sm font-semibold" for="recipient">Odbiorca</label>
       <input id="recipient" v-model="form.recipientName" required class="mt-1 w-full border border-line bg-card px-3 py-2" />
