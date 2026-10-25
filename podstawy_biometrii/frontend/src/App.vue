@@ -15,6 +15,12 @@ const metodyBinaryzacji = [
   { id: 'niblack', label: 'Niblack' },
 ]
 
+const widoki = [
+  { id: 'pojedynczy', label: 'Jedna metoda' },
+  { id: 'porownanie', label: 'Porównanie' },
+]
+
+const wybranyWidok = ref('pojedynczy')
 const wybranaMetoda = ref('progowa')
 const progReczny = ref(128)
 const rozmiarOknaNiblacka = ref(15)
@@ -27,10 +33,14 @@ const wyswietlanyProg = ref(null)
 const elementWyboruPliku = ref(null)
 const plotnoWejsciowe = ref(null)
 const plotnoWynikowe = ref(null)
+const plotnoProgowe = ref(null)
+const plotnoOtsu = ref(null)
+const plotnoNiblack = ref(null)
 const plotnoHistogramu = ref(null)
 
 let pikseleWSkaliSzarosci = null
 let histogramJasnosci = null
+let plotnoZrodla = null
 let szerokoscObrazu = 0
 let wysokoscObrazu = 0
 let identyfikatorKlatkiRenderowania = 0
@@ -40,6 +50,9 @@ const etykietaWspolczynnikaNiblacka = computed(() => Number(wspolczynnikNiblacka
 const opisHistogramu = computed(() => {
   if (!czyJestObraz.value) {
     return 'Rozkład jasności pojawi się po wczytaniu obrazu.'
+  }
+  if (wybranyWidok.value === 'porownanie') {
+    return `Czerwona kreska to próg ręczny (${progReczny.value}). Niebieska to próg Otsu (${wyswietlanyProg.value}). Niblack liczy próg osobno w każdym oknie.`
   }
   if (wybranaMetoda.value === 'niblack') {
     return 'Niblack liczy próg osobno w każdym oknie: średnia + k * odchylenie. Histogram nie ma jednej kreski.'
@@ -87,53 +100,111 @@ async function wczytajBitmapeObrazu(bitmapaObrazu) {
   czyJestObraz.value = true
   await nextTick()
 
-  const plotnoZrodla = plotnoWejsciowe.value
+  plotnoZrodla = document.createElement('canvas')
   plotnoZrodla.width = szerokoscObrazu
   plotnoZrodla.height = wysokoscObrazu
   const kontekstRysowania = plotnoZrodla.getContext('2d', { willReadFrequently: true })
   kontekstRysowania.imageSmoothingEnabled = true
   kontekstRysowania.imageSmoothingQuality = 'high'
   kontekstRysowania.drawImage(bitmapaObrazu, 0, 0, szerokoscObrazu, wysokoscObrazu)
+  pokazWejscieJesliJest()
 
   pikseleWSkaliSzarosci = doSkaliSzarosci(kontekstRysowania.getImageData(0, 0, szerokoscObrazu, wysokoscObrazu))
   histogramJasnosci = zbudujHistogramJasnosci(pikseleWSkaliSzarosci)
   wyrenderujBinaryzacje()
 }
 
-function wyrenderujBinaryzacje() {
-  if (!pikseleWSkaliSzarosci || !histogramJasnosci || !plotnoWynikowe.value || !plotnoHistogramu.value) return
+function pokazWejscieJesliJest() {
+  const widoczneWejscie = plotnoWejsciowe.value
+  if (!widoczneWejscie || !plotnoZrodla) return
 
-  let pikseleBinarne
-  let poziomProgu = null
+  widoczneWejscie.width = plotnoZrodla.width
+  widoczneWejscie.height = plotnoZrodla.height
+  widoczneWejscie.getContext('2d').drawImage(plotnoZrodla, 0, 0)
+}
 
-  if (wybranaMetoda.value === 'otsu') {
-    poziomProgu = progOtsu(pikseleWSkaliSzarosci)
-    pikseleBinarne = zastosujProg(pikseleWSkaliSzarosci, poziomProgu)
+function progiNaHistogramie() {
+  if (wybranyWidok.value === 'porownanie') {
+    return [Number(progReczny.value), wyswietlanyProg.value]
   }
-  else if (wybranaMetoda.value === 'niblack') {
-    pikseleBinarne = zastosujProgNiblacka(
+  return [wyswietlanyProg.value, null]
+}
+
+function narysujHistogramAlboSprobujPonownie() {
+  const [pierwszyProg, drugiProg] = progiNaHistogramie()
+  if (!narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, pierwszyProg, drugiProg)) {
+    requestAnimationFrame(() => {
+      if (!histogramJasnosci || !plotnoHistogramu.value) return
+      const [progPoOdswiezeniu, drugiProgPoOdswiezeniu] = progiNaHistogramie()
+      narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, progPoOdswiezeniu, drugiProgPoOdswiezeniu)
+    })
+  }
+}
+
+function namalujNiblacka(plotno) {
+  namalujObrazBinarny(
+    plotno,
+    zastosujProgNiblacka(
       pikseleWSkaliSzarosci,
       szerokoscObrazu,
       wysokoscObrazu,
       Number(rozmiarOknaNiblacka.value),
       Number(wspolczynnikNiblacka.value),
-    )
+    ),
+    szerokoscObrazu,
+    wysokoscObrazu,
+  )
+}
+
+function wyrenderujPorownanie() {
+  if (!plotnoProgowe.value || !plotnoOtsu.value || !plotnoNiblack.value) return
+
+  const poziomProguRecznego = Number(progReczny.value)
+  const poziomProguOtsu = progOtsu(pikseleWSkaliSzarosci)
+  wyswietlanyProg.value = poziomProguOtsu
+  namalujObrazBinarny(plotnoProgowe.value, zastosujProg(pikseleWSkaliSzarosci, poziomProguRecznego), szerokoscObrazu, wysokoscObrazu)
+  namalujObrazBinarny(plotnoOtsu.value, zastosujProg(pikseleWSkaliSzarosci, poziomProguOtsu), szerokoscObrazu, wysokoscObrazu)
+  namalujNiblacka(plotnoNiblack.value)
+  narysujHistogramAlboSprobujPonownie()
+}
+
+function przygotujPikseleBinarne() {
+  if (wybranaMetoda.value === 'otsu') {
+    const poziomProgu = progOtsu(pikseleWSkaliSzarosci)
+    return { pikseleBinarne: zastosujProg(pikseleWSkaliSzarosci, poziomProgu), poziomProgu }
   }
-  else {
-    poziomProgu = Number(progReczny.value)
-    pikseleBinarne = zastosujProg(pikseleWSkaliSzarosci, poziomProgu)
+  if (wybranaMetoda.value === 'niblack') {
+    return {
+      pikseleBinarne: zastosujProgNiblacka(
+        pikseleWSkaliSzarosci,
+        szerokoscObrazu,
+        wysokoscObrazu,
+        Number(rozmiarOknaNiblacka.value),
+        Number(wspolczynnikNiblacka.value),
+      ),
+      poziomProgu: null,
+    }
+  }
+  const poziomProgu = Number(progReczny.value)
+  return { pikseleBinarne: zastosujProg(pikseleWSkaliSzarosci, poziomProgu), poziomProgu }
+}
+
+function wyrenderujBinaryzacje() {
+  if (!pikseleWSkaliSzarosci || !histogramJasnosci || !plotnoHistogramu.value) return
+
+  if (wybranyWidok.value === 'porownanie') {
+    wyrenderujPorownanie()
+    return
   }
 
+  if (!plotnoWynikowe.value) return
+
+  pokazWejscieJesliJest()
+
+  const { pikseleBinarne, poziomProgu } = przygotujPikseleBinarne()
   wyswietlanyProg.value = poziomProgu
   namalujObrazBinarny(plotnoWynikowe.value, pikseleBinarne, szerokoscObrazu, wysokoscObrazu)
-
-  if (!narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, poziomProgu)) {
-    requestAnimationFrame(() => {
-      if (histogramJasnosci && plotnoHistogramu.value) {
-        narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, wyswietlanyProg.value)
-      }
-    })
-  }
+  narysujHistogramAlboSprobujPonownie()
 }
 
 function zaplanujRenderBinaryzacji() {
@@ -159,10 +230,11 @@ function zapiszWynikJakoPng() {
 
 function przerysujHistogramPoZmianieRozmiaru() {
   if (!histogramJasnosci || !plotnoHistogramu.value) return
-  narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, wyswietlanyProg.value)
+  const [pierwszyProg, drugiProg] = progiNaHistogramie()
+  narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, pierwszyProg, drugiProg)
 }
 
-watch([wybranaMetoda, progReczny, rozmiarOknaNiblacka, wspolczynnikNiblacka], zaplanujRenderBinaryzacji)
+watch([wybranyWidok, wybranaMetoda, progReczny, rozmiarOknaNiblacka, wspolczynnikNiblacka], zaplanujRenderBinaryzacji)
 
 onMounted(() => {
   window.addEventListener('resize', przerysujHistogramPoZmianieRozmiaru)
@@ -176,7 +248,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="min-h-screen bg-neutral-100 text-neutral-900">
-    <main class="mx-auto max-w-5xl px-4 py-6">
+    <main class="mx-auto max-w-6xl px-4 py-6">
       <h1 class="text-2xl">
         Podstawy biometrii
       </h1>
@@ -194,6 +266,7 @@ onBeforeUnmount(() => {
             Wczytaj obraz
           </button>
           <button
+            v-if="wybranyWidok === 'pojedynczy'"
             type="button"
             class="border border-neutral-400 bg-white px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!czyJestObraz"
@@ -212,7 +285,20 @@ onBeforeUnmount(() => {
           >
         </div>
 
-        <fieldset class="mt-4" :disabled="!czyJestObraz">
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button
+            v-for="widok in widoki"
+            :key="widok.id"
+            type="button"
+            class="border px-3 py-1.5 text-sm"
+            :class="wybranyWidok === widok.id ? 'border-neutral-900 bg-neutral-900 text-white' : 'border-neutral-400 bg-white hover:bg-neutral-50'"
+            @click="wybranyWidok = widok.id"
+          >
+            {{ widok.label }}
+          </button>
+        </div>
+
+        <fieldset v-if="wybranyWidok === 'pojedynczy'" class="mt-4" :disabled="!czyJestObraz">
           <legend class="text-sm">
             Metoda
           </legend>
@@ -224,7 +310,49 @@ onBeforeUnmount(() => {
           </div>
         </fieldset>
 
-        <div class="mt-4">
+        <div v-if="wybranyWidok === 'porownanie'" class="mt-4 flex flex-col gap-3">
+          <label class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
+            <span class="w-36">Próg: {{ progReczny }}</span>
+            <input
+              v-model.number="progReczny"
+              class="w-full disabled:opacity-50"
+              type="range"
+              min="0"
+              max="255"
+              step="1"
+              :disabled="!czyJestObraz"
+            >
+          </label>
+          <p class="text-sm">
+            Wyliczony próg Otsu: {{ czyJestObraz ? wyswietlanyProg : 'po wczytaniu obrazu' }}
+          </p>
+          <label class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
+            <span class="w-36">Okno: {{ rozmiarOknaNiblacka }} px</span>
+            <input
+              v-model.number="rozmiarOknaNiblacka"
+              class="w-full disabled:opacity-50"
+              type="range"
+              min="3"
+              max="51"
+              step="2"
+              :disabled="!czyJestObraz"
+            >
+          </label>
+          <label class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
+            <span class="w-36">k: {{ etykietaWspolczynnikaNiblacka }}</span>
+            <input
+              v-model.number="wspolczynnikNiblacka"
+              class="w-full disabled:opacity-50"
+              type="range"
+              min="-1"
+              max="1"
+              step="0.05"
+              :disabled="!czyJestObraz"
+            >
+          </label>
+        </div>
+
+        <div v-else class="mt-4">
           <label v-if="wybranaMetoda === 'progowa'" class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
             <span class="w-36">Próg: {{ progReczny }}</span>
             <input
@@ -271,7 +399,45 @@ onBeforeUnmount(() => {
         </div>
       </section>
 
-      <section class="mt-6 grid gap-4 md:grid-cols-2">
+      <section v-if="wybranyWidok === 'porownanie'" class="mt-6 grid gap-4 md:grid-cols-3">
+        <figure>
+          <figcaption class="mb-1 text-sm">
+            Progowa<span v-if="czyJestObraz">, próg {{ progReczny }}</span>
+          </figcaption>
+          <div class="border border-neutral-300 bg-white">
+            <canvas v-show="czyJestObraz" ref="plotnoProgowe" class="block h-auto w-full" />
+            <div v-if="!czyJestObraz" class="flex min-h-64 items-center justify-center px-4 text-center text-sm text-neutral-500">
+              Tu pojawi się próg ręczny
+            </div>
+          </div>
+        </figure>
+
+        <figure>
+          <figcaption class="mb-1 text-sm">
+            Otsu<span v-if="czyJestObraz">, próg {{ wyswietlanyProg }}</span>
+          </figcaption>
+          <div class="border border-neutral-300 bg-white">
+            <canvas v-show="czyJestObraz" ref="plotnoOtsu" class="block h-auto w-full" />
+            <div v-if="!czyJestObraz" class="flex min-h-64 items-center justify-center px-4 text-center text-sm text-neutral-500">
+              Tu pojawi się próg Otsu
+            </div>
+          </div>
+        </figure>
+
+        <figure>
+          <figcaption class="mb-1 text-sm">
+            Niblack<span v-if="czyJestObraz">, okno {{ rozmiarOknaNiblacka }} px, k {{ etykietaWspolczynnikaNiblacka }}</span>
+          </figcaption>
+          <div class="border border-neutral-300 bg-white">
+            <canvas v-show="czyJestObraz" ref="plotnoNiblack" class="block h-auto w-full" />
+            <div v-if="!czyJestObraz" class="flex min-h-64 items-center justify-center px-4 text-center text-sm text-neutral-500">
+              Tu pojawi się próg Niblacka
+            </div>
+          </div>
+        </figure>
+      </section>
+
+      <section v-else class="mt-6 grid gap-4 md:grid-cols-2">
         <figure>
           <figcaption class="mb-1 text-sm">
             Wejście

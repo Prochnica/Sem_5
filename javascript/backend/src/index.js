@@ -2,8 +2,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import cors from 'cors'
 import express from 'express'
+import swaggerUi from 'swagger-ui-express'
 import { initDatabase } from './db/database.js'
 import { sendError } from './errors.js'
+import { openApiDocument } from './openapi.js'
 import { authRouter } from './routes/auth.js'
 import { cartRouter } from './routes/cart.js'
 import { categoriesRouter } from './routes/categories.js'
@@ -29,6 +31,13 @@ app.use('/api/products', productsRouter)
 app.use('/api/cart', cartRouter)
 app.use('/api/orders', ordersRouter)
 
+app.get('/api/docs.json', (req, res) => {
+  res.json(openApiDocument)
+})
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openApiDocument, {
+  customSiteTitle: 'EMarket API',
+}))
+
 app.use('/api', (req, res) => {
   res.status(404).json({ error: 'not_found', message: 'Nie ma takiego adresu' })
 })
@@ -39,4 +48,5 @@ const port = Number(process.env.PORT) || 4520
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`EMarket API nasłuchuje na porcie ${port}`)
+  console.log(`Swagger: http://localhost:${port}/api/docs`)
 })

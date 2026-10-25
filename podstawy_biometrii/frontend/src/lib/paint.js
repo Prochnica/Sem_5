@@ -16,7 +16,19 @@ export function namalujObrazBinarny(plotno, pikseleBinarne, szerokoscObrazu, wys
   kontekstRysowania.putImageData(daneWynikowegoObrazu, 0, 0)
 }
 
-export function narysujHistogramJasnosci(plotno, histogramJasnosci, poziomProgu) {
+function narysujKreskeProgu(kontekstRysowania, poziomProgu, szerokoscSlupkaHistogramu, wysokoscPlotnaWCss, kolorKreski) {
+  if (poziomProgu === null || poziomProgu === undefined) return
+
+  const pozycjaKreskiProgu = (Number(poziomProgu) + 0.5) * szerokoscSlupkaHistogramu
+  kontekstRysowania.strokeStyle = kolorKreski
+  kontekstRysowania.lineWidth = 2
+  kontekstRysowania.beginPath()
+  kontekstRysowania.moveTo(pozycjaKreskiProgu, 0)
+  kontekstRysowania.lineTo(pozycjaKreskiProgu, wysokoscPlotnaWCss)
+  kontekstRysowania.stroke()
+}
+
+export function narysujHistogramJasnosci(plotno, histogramJasnosci, poziomProgu, drugiProg) {
   const szerokoscPlotnaWCss = plotno.clientWidth
   const wysokoscPlotnaWCss = plotno.clientHeight || 160
   if (szerokoscPlotnaWCss === 0) return false
@@ -50,15 +62,8 @@ export function narysujHistogramJasnosci(plotno, histogramJasnosci, poziomProgu)
     )
   }
 
-  if (poziomProgu !== null && poziomProgu !== undefined) {
-    const pozycjaKreskiProgu = (Number(poziomProgu) + 0.5) * szerokoscSlupkaHistogramu
-    kontekstRysowania.strokeStyle = '#cc0000'
-    kontekstRysowania.lineWidth = 2
-    kontekstRysowania.beginPath()
-    kontekstRysowania.moveTo(pozycjaKreskiProgu, 0)
-    kontekstRysowania.lineTo(pozycjaKreskiProgu, wysokoscPlotnaWCss)
-    kontekstRysowania.stroke()
-  }
+  narysujKreskeProgu(kontekstRysowania, poziomProgu, szerokoscSlupkaHistogramu, wysokoscPlotnaWCss, '#cc0000')
+  narysujKreskeProgu(kontekstRysowania, drugiProg, szerokoscSlupkaHistogramu, wysokoscPlotnaWCss, '#1d4ed8')
 
   return true
 }
