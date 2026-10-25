@@ -6,6 +6,8 @@ import { zastosujProgNiblacka } from './lib/niblack.js'
 import { progOtsu } from './lib/otsu.js'
 import { narysujHistogramJasnosci, namalujObrazBinarny } from './lib/paint.js'
 import { zastosujProg } from './lib/threshold.js'
+import TraceSkeleton from 'skeleton-tracing-js/dist/trace_skeleton.js'
+import { bityObiektu, policzRoznicePikseli, przygotujObiekt, scienianieZhangSuen } from './lib/zhangSuen.js'
 
 const maksymalnaDlugoscKrawedziObrazu = 1600
 
@@ -18,6 +20,7 @@ const metodyBinaryzacji = [
 const widoki = [
   { id: 'pojedynczy', label: 'Jedna metoda' },
   { id: 'porownanie', label: 'Porównanie' },
+  { id: 'szkieletyzacja', label: 'Szkieletyzacja' },
 ]
 
 const wybranyWidok = ref('pojedynczy')
@@ -29,6 +32,15 @@ const nazwaWybranegoPliku = ref('')
 const komunikatBledu = ref('')
 const czyJestObraz = ref(false)
 const wyswietlanyProg = ref(null)
+const maksymalnaLiczbaIteracji = ref(30)
+const numerOgladanejIteracji = ref(0)
+const obiektCiemny = ref(true)
+const liczbaWykonanychIteracji = ref(0)
+const szkieletDoszedlDoKonca = ref(false)
+const czasWlasnyMs = ref(null)
+const czasBibliotekiMs = ref(null)
+const liczbaRoznicZBiblioteka = ref(null)
+const czyLiczySzkielet = ref(false)
 
 const elementWyboruPliku = ref(null)
 const plotnoWejsciowe = ref(null)
@@ -37,6 +49,11 @@ const plotnoProgowe = ref(null)
 const plotnoOtsu = ref(null)
 const plotnoNiblack = ref(null)
 const plotnoHistogramu = ref(null)
+const plotnoKolorowe = ref(null)
+const plotnoBinarneSzkieletu = ref(null)
+const plotnoSzkieletu = ref(null)
+const plotnoSzkieletKoncowy = ref(null)
+const plotnoReferencji = ref(null)
 
 let pikseleWSkaliSzarosci = null
 let histogramJasnosci = null
@@ -44,6 +61,8 @@ let plotnoZrodla = null
 let szerokoscObrazu = 0
 let wysokoscObrazu = 0
 let identyfikatorKlatkiRenderowania = 0
+let klatkiSzkieletu = []
+let numerObliczeniaSzkieletu = 0
 
 const etykietaWspolczynnikaNiblacka = computed(() => Number(wspolczynnikNiblacka.value).toFixed(2))
 
@@ -189,8 +208,86 @@ function przygotujPikseleBinarne() {
   return { pikseleBinarne: zastosujProg(pikseleWSkaliSzarosci, poziomProgu), poziomProgu }
 }
 
+function pokazKolorNaPlotnie(plotno) {
+  if (!plotno || !plotnoZrodla) return
+  plotno.width = plotnoZrodla.width
+  plotno.height = plotnoZrodla.height
+  plotno.getContext('2d').drawImage(plotnoZrodla, 0, 0)
+}
+
+function namalujWybranaKlatkeSzkieletu() {
+  if (!plotnoSzkieletu.value || klatkiSzkieletu.length === 0) return
+  const numerKlatki = Math.min(Number(numerOgladanejIteracji.value), klatkiSzkieletu.length - 1)
+  namalujObrazBinarny(plotnoSzkieletu.value, klatkiSzkieletu[numerKlatki], szerokoscObrazu, wysokoscObrazu)
+}
+
+function bityDoObrazu(bity) {
+  const obraz = new Uint8Array(bity.length)
+  for (let indeks = 0; indeks < bity.length; indeks++) {
+    obraz[indeks] = bity[indeks] ? 255 : 0
+  }
+  return obraz
+}
+
+async function przeliczSzkielet(pikseleBinarne) {
+  const numerTegoObliczenia = ++numerObliczeniaSzkieletu
+  czyLiczySzkielet.value = true
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  if (numerTegoObliczenia !== numerObliczeniaSzkieletu) return
+
+  const pikseleObiektu = przygotujObiekt(pikseleBinarne, obiektCiemny.value)
+  const wynik = scienianieZhangSuen(
+    pikseleObiektu,
+    szerokoscObrazu,
+    wysokoscObrazu,
+    Number(maksymalnaLiczbaIteracji.value),
+  )
+  if (numerTegoObliczenia !== numerObliczeniaSzkieletu) return
+
+  klatkiSzkieletu = wynik.klatki
+  liczbaWykonanychIteracji.value = wynik.liczbaIteracji
+  szkieletDoszedlDoKonca.value = wynik.doszloDoKonca
+  czasWlasnyMs.value = Math.round(wynik.czasMs)
+  if (numerOgladanejIteracji.value > wynik.liczbaIteracji) {
+    numerOgladanejIteracji.value = wynik.liczbaIteracji
+  }
+
+  const bityBiblioteki = bityObiektu(pikseleObiektu)
+  const poczatekBiblioteki = performance.now()
+  TraceSkeleton.thinningZS(bityBiblioteki, szerokoscObrazu, wysokoscObrazu)
+  czasBibliotekiMs.value = Math.round(performance.now() - poczatekBiblioteki)
+  liczbaRoznicZBiblioteka.value = policzRoznicePikseli(wynik.klatki[wynik.klatki.length - 1], bityBiblioteki)
+
+  namalujWybranaKlatkeSzkieletu()
+  if (plotnoSzkieletKoncowy.value) {
+    namalujObrazBinarny(plotnoSzkieletKoncowy.value, wynik.klatki[wynik.klatki.length - 1], szerokoscObrazu, wysokoscObrazu)
+  }
+  if (plotnoReferencji.value) {
+    namalujObrazBinarny(plotnoReferencji.value, bityDoObrazu(bityBiblioteki), szerokoscObrazu, wysokoscObrazu)
+  }
+  czyLiczySzkielet.value = false
+}
+
+function wyrenderujSzkieletyzacje() {
+  if (!plotnoKolorowe.value || !plotnoBinarneSzkieletu.value) return
+
+  pokazKolorNaPlotnie(plotnoKolorowe.value)
+  const { pikseleBinarne, poziomProgu } = przygotujPikseleBinarne()
+  wyswietlanyProg.value = poziomProgu
+  namalujObrazBinarny(plotnoBinarneSzkieletu.value, pikseleBinarne, szerokoscObrazu, wysokoscObrazu)
+  przeliczSzkielet(pikseleBinarne)
+}
+
 function wyrenderujBinaryzacje() {
-  if (!pikseleWSkaliSzarosci || !histogramJasnosci || !plotnoHistogramu.value) return
+  if (!pikseleWSkaliSzarosci || !histogramJasnosci) return
+
+  if (wybranyWidok.value === 'szkieletyzacja') {
+    wyrenderujSzkieletyzacje()
+    return
+  }
+
+  if (!plotnoHistogramu.value) return
 
   if (wybranyWidok.value === 'porownanie') {
     wyrenderujPorownanie()
@@ -213,16 +310,15 @@ function zaplanujRenderBinaryzacji() {
   identyfikatorKlatkiRenderowania = requestAnimationFrame(wyrenderujBinaryzacje)
 }
 
-function zapiszWynikJakoPng() {
-  const plotnoWyniku = plotnoWynikowe.value
-  if (!plotnoWyniku || !czyJestObraz.value) return
+function zapiszPlotnoJakoPng(plotno, nazwaPliku) {
+  if (!plotno || !czyJestObraz.value) return
 
-  plotnoWyniku.toBlob((blobPng) => {
+  plotno.toBlob((blobPng) => {
     if (!blobPng) return
     const adresPobrania = URL.createObjectURL(blobPng)
     const linkPobrania = document.createElement('a')
     linkPobrania.href = adresPobrania
-    linkPobrania.download = 'wynik.png'
+    linkPobrania.download = nazwaPliku
     linkPobrania.click()
     URL.revokeObjectURL(adresPobrania)
   }, 'image/png')
@@ -234,7 +330,16 @@ function przerysujHistogramPoZmianieRozmiaru() {
   narysujHistogramJasnosci(plotnoHistogramu.value, histogramJasnosci, pierwszyProg, drugiProg)
 }
 
-watch([wybranyWidok, wybranaMetoda, progReczny, rozmiarOknaNiblacka, wspolczynnikNiblacka], zaplanujRenderBinaryzacji)
+function zapiszWynikJakoPng() {
+  if (wybranyWidok.value === 'szkieletyzacja') {
+    zapiszPlotnoJakoPng(plotnoSzkieletu.value, 'szkielet.png')
+    return
+  }
+  zapiszPlotnoJakoPng(plotnoWynikowe.value, 'wynik.png')
+}
+
+watch(numerOgladanejIteracji, namalujWybranaKlatkeSzkieletu)
+watch([wybranyWidok, wybranaMetoda, progReczny, rozmiarOknaNiblacka, wspolczynnikNiblacka, maksymalnaLiczbaIteracji, obiektCiemny], zaplanujRenderBinaryzacji)
 
 onMounted(() => {
   window.addEventListener('resize', przerysujHistogramPoZmianieRozmiaru)
@@ -253,7 +358,7 @@ onBeforeUnmount(() => {
         Podstawy biometrii
       </h1>
       <p class="mt-1 text-neutral-600">
-        Binaryzacja
+        {{ wybranyWidok === 'szkieletyzacja' ? 'Szkieletyzacja' : 'Binaryzacja' }}
       </p>
 
       <section class="mt-6 border border-neutral-300 bg-white p-4">
@@ -266,13 +371,13 @@ onBeforeUnmount(() => {
             Wczytaj obraz
           </button>
           <button
-            v-if="wybranyWidok === 'pojedynczy'"
+            v-if="wybranyWidok === 'pojedynczy' || wybranyWidok === 'szkieletyzacja'"
             type="button"
             class="border border-neutral-400 bg-white px-3 py-1.5 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
             :disabled="!czyJestObraz"
             @click="zapiszWynikJakoPng"
           >
-            Zapisz PNG
+            {{ wybranyWidok === 'szkieletyzacja' ? 'Zapisz szkielet PNG' : 'Zapisz PNG' }}
           </button>
           <span v-if="nazwaWybranegoPliku" class="w-full text-sm text-neutral-600">{{ nazwaWybranegoPliku }}</span>
           <span v-if="komunikatBledu" class="text-sm text-red-700">{{ komunikatBledu }}</span>
@@ -298,7 +403,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
 
-        <fieldset v-if="wybranyWidok === 'pojedynczy'" class="mt-4" :disabled="!czyJestObraz">
+        <fieldset v-if="wybranyWidok !== 'porownanie'" class="mt-4" :disabled="!czyJestObraz">
           <legend class="text-sm">
             Metoda
           </legend>
@@ -397,6 +502,52 @@ onBeforeUnmount(() => {
             </label>
           </div>
         </div>
+
+        <div v-if="wybranyWidok === 'szkieletyzacja'" class="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4">
+          <label class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
+            <span class="w-52">Maks. iteracji: {{ maksymalnaLiczbaIteracji }}</span>
+            <input
+              v-model.number="maksymalnaLiczbaIteracji"
+              class="w-full disabled:opacity-50"
+              type="range"
+              min="1"
+              max="60"
+              step="1"
+              :disabled="!czyJestObraz || czyLiczySzkielet"
+            >
+          </label>
+          <label class="flex flex-col gap-2 text-sm sm:flex-row sm:items-center">
+            <span class="w-52">Iteracja: {{ numerOgladanejIteracji }}</span>
+            <input
+              v-model.number="numerOgladanejIteracji"
+              class="w-full disabled:opacity-50"
+              type="range"
+              min="0"
+              :max="liczbaWykonanychIteracji"
+              step="1"
+              :disabled="!czyJestObraz || czyLiczySzkielet"
+            >
+          </label>
+          <fieldset class="flex flex-wrap gap-4" :disabled="!czyJestObraz || czyLiczySzkielet">
+            <legend class="text-sm">Obiekt do ścieniania</legend>
+            <label class="flex items-center gap-2 text-sm">
+              <input v-model="obiektCiemny" type="radio" :value="true">
+              Ciemne piksele
+            </label>
+            <label class="flex items-center gap-2 text-sm">
+              <input v-model="obiektCiemny" type="radio" :value="false">
+              Jasne piksele
+            </label>
+          </fieldset>
+          <p class="text-sm text-neutral-600">
+            <template v-if="!czyJestObraz">Szkielet pojawi się po wczytaniu obrazu.</template>
+            <template v-else-if="czyLiczySzkielet">Liczenie szkieletu...</template>
+            <template v-else>
+              Iteracje: {{ liczbaWykonanychIteracji }}{{ szkieletDoszedlDoKonca ? ', algorytm stanął' : ', ucięte limitem' }}.
+              Czas własny: {{ czasWlasnyMs }} ms. Czas biblioteki: {{ czasBibliotekiMs }} ms.
+            </template>
+          </p>
+        </div>
       </section>
 
       <section v-if="wybranyWidok === 'porownanie'" class="mt-6 grid gap-4 md:grid-cols-3">
@@ -437,6 +588,65 @@ onBeforeUnmount(() => {
         </figure>
       </section>
 
+      <section v-else-if="wybranyWidok === 'szkieletyzacja'" class="mt-6">
+        <div class="grid gap-4 md:grid-cols-3">
+          <figure>
+            <figcaption class="mb-1 text-sm">Kolor</figcaption>
+            <div class="border border-neutral-300 bg-white">
+              <canvas v-show="czyJestObraz" ref="plotnoKolorowe" class="block h-auto w-full" />
+              <div v-if="!czyJestObraz" class="flex min-h-48 items-center justify-center px-4 text-center text-sm text-neutral-500">
+                Obraz kolorowy
+              </div>
+            </div>
+          </figure>
+          <figure>
+            <figcaption class="mb-1 text-sm">Binaryzacja</figcaption>
+            <div class="border border-neutral-300 bg-white">
+              <canvas v-show="czyJestObraz" ref="plotnoBinarneSzkieletu" class="block h-auto w-full" />
+              <div v-if="!czyJestObraz" class="flex min-h-48 items-center justify-center px-4 text-center text-sm text-neutral-500">
+                Wynik modułu 1
+              </div>
+            </div>
+          </figure>
+          <figure>
+            <figcaption class="mb-1 text-sm">Szkielet, iteracja {{ numerOgladanejIteracji }}</figcaption>
+            <div class="border border-neutral-300 bg-white">
+              <canvas v-show="czyJestObraz" ref="plotnoSzkieletu" class="block h-auto w-full" />
+              <div v-if="!czyJestObraz" class="flex min-h-48 items-center justify-center px-4 text-center text-sm text-neutral-500">
+                Wybrana iteracja
+              </div>
+            </div>
+          </figure>
+        </div>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <figure>
+            <figcaption class="mb-1 text-sm">Własny wynik, ostatnia iteracja</figcaption>
+            <div class="border border-neutral-300 bg-white">
+              <canvas v-show="czyJestObraz" ref="plotnoSzkieletKoncowy" class="block h-auto w-full" />
+              <div v-if="!czyJestObraz" class="flex min-h-48 items-center justify-center px-4 text-center text-sm text-neutral-500">
+                Koniec ścieniania
+              </div>
+            </div>
+          </figure>
+          <figure>
+            <figcaption class="mb-1 text-sm">skeleton-tracing-js, thinningZS</figcaption>
+            <div class="border border-neutral-300 bg-white">
+              <canvas v-show="czyJestObraz" ref="plotnoReferencji" class="block h-auto w-full" />
+              <div v-if="!czyJestObraz" class="flex min-h-48 items-center justify-center px-4 text-center text-sm text-neutral-500">
+                Wynik biblioteki
+              </div>
+            </div>
+          </figure>
+        </div>
+        <p v-if="czyJestObraz && liczbaRoznicZBiblioteka !== null" class="mt-2 text-sm text-neutral-600">
+          Różnych pikseli: {{ liczbaRoznicZBiblioteka }}.
+          <template v-if="!szkieletDoszedlDoKonca">
+            Limit iteracji uciął liczenie, więc część różnicy to niedokończone ścienianie. Biblioteka zawsze dochodzi do końca.
+          </template>
+        </p>
+      </section>
+
       <section v-else class="mt-6 grid gap-4 md:grid-cols-2">
         <figure>
           <figcaption class="mb-1 text-sm">
@@ -463,7 +673,7 @@ onBeforeUnmount(() => {
         </figure>
       </section>
 
-      <section class="mt-6">
+      <section v-if="wybranyWidok !== 'szkieletyzacja'" class="mt-6">
         <h2 class="mb-1 text-sm">
           Histogram skali szarości
         </h2>
