@@ -1,106 +1,74 @@
-import { reactive, watch } from 'vue'
-import { cartLineItems, cartTotalCents, clearCart } from './cart.js'
-import { auth } from './auth.js'
+import { api } from '../lib/api.js'
+import { cartLineItems, clearCart } from './cart.js'
+import { loadCatalog } from './catalog.js'
 
-const storageKey = 'emarket-orders'
-const lastKey = 'emarket-last-order'
-
-const seedOrder = {
-  id: 'EM-1042',
-  email: 'test1234@wp.pl',
-  status: 'wyslane',
-  recipientName: 'Jan Kowalski',
-  addressLine: 'ul. Prosta 1',
-  postalCode: '00-001',
-  city: 'Warszawa',
-  totalCents: 21800,
-  createdAt: '2026-09-28T10:00:00.000Z',
-  items: [
-    {
-      productId: 1,
-      productName: 'Czajnik emaliowany 2 l',
-      unitPriceCents: 12900,
-      quantity: 1,
-    },
-    {
-      productId: 2,
-      productName: 'Deska dębowa',
-      unitPriceCents: 8900,
-      quantity: 1,
-    },
-  ],
-}
-
-function readJson(key, fallback) {
-  if (typeof sessionStorage === 'undefined') {
-    return fallback
-  }
-  try {
-    const raw = sessionStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
-
-export const orderBook = reactive({
-  list: readJson(storageKey, [seedOrder]),
-  lastId: readJson(lastKey, null),
-})
-
-watch(
-  orderBook,
-  (value) => {
-    if (typeof sessionStorage === 'undefined') {
-      return
-    }
-    sessionStorage.setItem(storageKey, JSON.stringify(value.list))
-    if (value.lastId) {
-      sessionStorage.setItem(lastKey, JSON.stringify(value.lastId))
-    }
-  },
-  { deep: true },
-)
-
-export function ordersForCurrentUser() {
-  if (!auth.user) {
-    return []
-  }
-  return orderBook.list.filter((order) => order.email === auth.user.email)
-}
-
-export function orderById(id) {
-  return orderBook.list.find((order) => order.id === id) ?? null
-}
-
-export function placeOrder(form) {
-  if (!auth.user) {
-    return { ok: false, message: 'Zaloguj się, żeby złożyć zamówienie.' }
-  }
-  if (cartLineItems.value.length === 0) {
-    return { ok: false, message: 'Koszyk jest pusty.' }
-  }
-
-  const order = {
-    id: `EM-${crypto.randomUUID()}`,
-    email: auth.user.email,
-    status: 'zlozone',
-    recipientName: form.recipientName.trim(),
-    addressLine: form.addressLine.trim(),
-    postalCode: form.postalCode.trim(),
-    city: form.city.trim(),
-    totalCents: cartTotalCents.value,
-    createdAt: new Date().toISOString(),
-    items: cartLineItems.value.map((cartLine) => ({
-      productId: cartLine.product.id,
-      productName: cartLine.product.name,
-      unitPriceCents: cartLine.product.priceCents,
-      quantity: cartLine.quantity,
+function orderFromApi(row) {
+  return {
+    id: row.id,
+    status: row.status,
+    recipientName: row.recipient_name,
+    addressLine: row.address_line,
+    postalCode: row.postal_code,
+    city: row.city,
+    totalCents: row.total_cents,
+    createdAt: row.created_at,
+    items: (row.items ?? []).map((item) => ({
+      id: item.id,
+      productId: item.product_id,
+      productName: item.product_name,
+      unitPriceCents: item.unit_price_cents,
+      quantity: item.quantity,
     })),
   }
+}
 
-  orderBook.list.unshift(order)
-  orderBook.lastId = order.id
+export async function loadOrders() {
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem('emarket-orders')
+    sessionStorage.removeItem('emarket-last-order')
+  }
+  const rows = await api('/api/orders')
+  return rows.map(orderFromApi)
+}
+
+export async function loadOrder(orderId) {
+  const row = await api(`/api/orders/${orderId}`)
+  return orderFromApi(row)
+}
+
+async function copyCartToDatabase(lines) {
+  const current = await api('/api/cart')
+  for (const item of current.items) {
+    await api(`/api/cart/items/${item.id}`, { method: 'DELETE' })
+  }
+  for (const line of lines) {
+    await api('/api/cart/items', {
+      method: 'POST',
+      body: {
+        product_id: line.product.id,
+        quantity: line.quantity,
+      },
+    })
+  }
+}
+
+export async function placeOrder(form) {
+  const lines = cartLineItems.value
+  if (lines.length === 0) {
+    throw new Error('Koszyk jest pusty.')
+  }
+
+  await copyCartToDatabase(lines)
+  const created = await api('/api/orders', {
+    method: 'POST',
+    body: {
+      recipient_name: form.recipientName.trim(),
+      address_line: form.addressLine.trim(),
+      postal_code: form.postalCode.trim(),
+      city: form.city.trim(),
+    },
+  })
   clearCart()
-  return { ok: true, order }
+  await loadCatalog()
+  return orderFromApi(created)
 }

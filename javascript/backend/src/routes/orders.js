@@ -44,7 +44,7 @@ ordersRouter.get('/', handle((req, res) => {
     .prepare(`SELECT ${orderColumns} FROM orders WHERE user_id = ? ORDER BY id DESC`)
     .all(req.user.id)
 
-  res.json(orders)
+  res.json(orders.map((order) => readOrder(req.user.id, order.id)))
 }))
 
 ordersRouter.get('/:id', handle((req, res) => {

@@ -9,6 +9,7 @@ import { auth } from '../state/auth.js'
 
 const router = useRouter()
 const error = ref('')
+const submitting = ref(false)
 const form = reactive({
   recipientName: auth.user?.name ?? '',
   addressLine: '',
@@ -16,7 +17,7 @@ const form = reactive({
   city: '',
 })
 
-function onSubmit() {
+async function onSubmit() {
   error.value = ''
   if (form.recipientName.trim().length < 2) {
     error.value = 'Podaj imię i nazwisko odbiorcy.'
@@ -35,12 +36,15 @@ function onSubmit() {
     return
   }
 
-  const result = placeOrder(form)
-  if (!result.ok) {
-    error.value = result.message
-    return
+  submitting.value = true
+  try {
+    const order = await placeOrder(form)
+    router.push({ path: '/zamowienie/potwierdzenie', query: { id: String(order.id) } })
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Nie udało się złożyć zamówienia.'
+  } finally {
+    submitting.value = false
   }
-  router.push('/zamowienie/potwierdzenie')
 }
 </script>
 
@@ -72,7 +76,7 @@ function onSubmit() {
 
       <p v-if="error" class="mt-4 text-sm text-danger" role="alert">{{ error }}</p>
 
-      <button type="submit" class="mt-6 bg-copper px-4 py-3 font-semibold text-paper hover:bg-copper-dark">
+      <button type="submit" class="mt-6 bg-copper px-4 py-3 font-semibold text-paper hover:bg-copper-dark" :disabled="submitting">
         Potwierdź zamówienie
       </button>
     </form>
