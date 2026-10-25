@@ -4,25 +4,46 @@ import { useRoute } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import ProductPrice from '../components/ProductPrice.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
-import { categoryById, productBySlug, recordProductPageView } from '../data/catalog.js'
+import { categoryById, loadProductBySlug } from '../state/catalog.js'
 import { addCartItem } from '../state/cart.js'
 
 const route = useRoute()
 const quantity = ref(1)
 const notice = ref('')
-const viewCount = ref(0)
+const product = ref(null)
+const loading = ref(true)
+const error = ref('')
+let requestId = 0
 
-const product = computed(() => productBySlug(String(route.params.slug ?? '')))
 const category = computed(() => (product.value ? categoryById(product.value.categoryId) : null))
 const initial = computed(() => product.value?.name.slice(0, 1) ?? '')
 
 watch(
   () => route.params.slug,
-  (slug) => {
+  async (slug) => {
     quantity.value = 1
     notice.value = ''
-    const current = productBySlug(String(slug ?? ''))
-    viewCount.value = current ? recordProductPageView(current.id) : 0
+    const currentRequest = requestId + 1
+    requestId = currentRequest
+    loading.value = true
+    error.value = ''
+    product.value = null
+    try {
+      const loaded = await loadProductBySlug(String(slug ?? ''))
+      if (currentRequest !== requestId) {
+        return
+      }
+      product.value = loaded
+    } catch (cause) {
+      if (currentRequest !== requestId) {
+        return
+      }
+      error.value = cause instanceof Error ? cause.message : 'Nie udało się wczytać produktu.'
+    } finally {
+      if (currentRequest === requestId) {
+        loading.value = false
+      }
+    }
   },
   { immediate: true },
 )
@@ -37,7 +58,9 @@ function onAdd() {
 </script>
 
 <template>
-  <EmptyState v-if="!product" title="Nie ma takiego produktu" text="Wróć do katalogu i wybierz inną pozycję.">
+  <p v-if="loading" class="text-muted">Wczytywanie...</p>
+
+  <EmptyState v-else-if="!product" title="Nie ma takiego produktu" :text="error || 'Wróć do katalogu i wybierz inną pozycję.'">
     <router-link to="/" class="font-semibold text-copper-dark underline">Katalog</router-link>
   </EmptyState>
 
@@ -58,7 +81,7 @@ function onAdd() {
       </div>
       <p class="mt-4 max-w-prose text-lg leading-relaxed">{{ product.description }}</p>
       <p class="mt-3 text-sm text-muted">Dostępne: {{ product.stock }} szt.</p>
-      <p class="mt-1 text-sm text-muted">Wyświetlenia: {{ viewCount }}</p>
+      <p class="mt-1 text-sm text-muted">Wyświetlenia: {{ product.views }}</p>
 
       <div class="mt-6 flex flex-wrap items-center gap-3">
         <QuantityStepper v-model="quantity" :maximum-quantity="product.stock" />

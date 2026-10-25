@@ -1,5 +1,5 @@
 import { computed, reactive, watch } from 'vue'
-import { productById } from '../data/catalog.js'
+import { productById } from './catalog.js'
 
 const storageKey = 'emarket-cart'
 

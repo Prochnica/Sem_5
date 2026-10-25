@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { categoryById, productViewCount } from '../data/catalog.js'
+import { categoryById } from '../state/catalog.js'
 import { addCartItem } from '../state/cart.js'
 import ProductPrice from './ProductPrice.vue'
 
@@ -37,7 +37,7 @@ function onAdd() {
         </router-link>
       </h2>
       <p class="text-sm text-muted">Dostępne: {{ product.stock }} szt.</p>
-      <p class="text-sm text-muted">Wyświetlenia: {{ productViewCount(product.id) }}</p>
+      <p class="text-sm text-muted">Wyświetlenia: {{ product.views }}</p>
       <div class="mt-auto flex items-end justify-between gap-3 pt-2">
         <ProductPrice :price-cents="product.priceCents" />
         <button type="button" class="bg-copper px-3 py-2 text-sm font-semibold text-paper hover:bg-copper-dark" @click="onAdd">

@@ -1,33 +1,26 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import ProductCard from '../components/ProductCard.vue'
-import { categoryBySlug, filterProducts } from '../data/catalog.js'
+import { catalog, categoryBySlug, loadProductList } from '../state/catalog.js'
 
 const route = useRoute()
 const router = useRouter()
+const matchingProducts = ref([])
+const loading = ref(false)
+const error = ref('')
+let requestId = 0
 
 const category = computed(() => {
   const slug = route.params.slug
   return typeof slug === 'string' ? categoryBySlug(slug) : null
 })
 
-const missingCategory = computed(() => typeof route.params.slug === 'string' && !category.value)
+const missingCategory = computed(() => typeof route.params.slug === 'string' && catalog.loaded && !category.value)
 
 const searchText = computed(() => (typeof route.query.search === 'string' ? route.query.search : ''))
 const sort = computed(() => (typeof route.query.sort === 'string' ? route.query.sort : ''))
-
-const matchingProducts = computed(() => {
-  if (missingCategory.value) {
-    return []
-  }
-  return filterProducts({
-    categorySlug: category.value?.slug,
-    searchText: searchText.value,
-    sort: sort.value,
-  })
-})
 
 const productCountLabel = computed(() => {
   const productCount = matchingProducts.value.length
@@ -62,11 +55,53 @@ function onSort(event) {
   }
   router.replace({ query: nextQuery })
 }
+
+watch(
+  () => [route.params.slug, route.query.search, route.query.sort, catalog.loaded],
+  async () => {
+    if (!catalog.loaded || missingCategory.value) {
+      matchingProducts.value = []
+      return
+    }
+    const currentRequest = requestId + 1
+    requestId = currentRequest
+    loading.value = true
+    error.value = ''
+    try {
+      const products = await loadProductList({
+        categorySlug: category.value?.slug,
+        searchText: searchText.value,
+        sort: sort.value,
+      })
+      if (currentRequest !== requestId) {
+        return
+      }
+      matchingProducts.value = products
+    } catch (cause) {
+      if (currentRequest !== requestId) {
+        return
+      }
+      error.value = cause instanceof Error ? cause.message : 'Nie udało się wczytać katalogu.'
+      matchingProducts.value = []
+    } finally {
+      if (currentRequest === requestId) {
+        loading.value = false
+      }
+    }
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
   <EmptyState
-    v-if="missingCategory"
+    v-if="catalog.error"
+    title="Nie udało się wczytać katalogu"
+    :text="catalog.error"
+  />
+
+  <EmptyState
+    v-else-if="missingCategory"
     title="Nie ma takiej kategorii"
     text="Wybierz kategorię z paska u góry albo wróć do całego katalogu."
   >
@@ -91,8 +126,11 @@ function onSort(event) {
       </label>
     </div>
 
+    <p v-if="loading" class="mt-8 text-muted">Wczytywanie...</p>
+    <p v-else-if="error" class="mt-8 text-sm text-danger" role="alert">{{ error }}</p>
+
     <EmptyState
-      v-if="matchingProducts.length === 0"
+      v-else-if="matchingProducts.length === 0"
       class="mt-8"
       title="Nic nie pasuje"
       text="Zmień frazę albo wyczyść wyszukiwanie."

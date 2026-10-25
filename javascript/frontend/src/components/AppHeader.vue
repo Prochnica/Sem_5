@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { categories } from '../data/catalog.js'
+import { catalog } from '../state/catalog.js'
 import { cartCount } from '../state/cart.js'
 import { auth, logout } from '../state/auth.js'
 
@@ -56,7 +56,7 @@ function onLogout() {
     </div>
     <nav class="border-t border-paper/15" aria-label="Kategorie">
       <ul class="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 py-2 text-sm">
-        <li v-for="category in categories" :key="category.id">
+        <li v-for="category in catalog.categories" :key="category.id">
           <router-link
             :to="`/kategoria/${category.slug}`"
             class="inline-block px-2 py-1 whitespace-nowrap hover:text-copper"
