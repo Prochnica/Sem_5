@@ -1,0 +1,300 @@
+{
+  "info": {
+    "name": "EMarket",
+    "description": "API sklepu EMarket. Adres bazowy to http://localhost:4520. Koszyk nie jest w tej kolekcji. Logowanie zapisuje token do zmiennej {{token}}, a chronione żądania wysyłają go jako Authorization: Bearer.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:4520"
+    },
+    {
+      "key": "token",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Stan API",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health",
+            "description": "GET /api/health. Zwraca { \"ok\": true }. Bez logowania."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Rejestracja",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.token) {",
+                  "    pm.collectionVariables.set('token', body.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anna Testowa\",\n  \"email\": \"anna@wp.pl\",\n  \"password\": \"test1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "POST /api/auth/register. 201: { token, user }. Imię i email do 255 znaków, hasło co najmniej 6. Zajęty email zwraca 409. Token zapisuje się do {{token}}."
+          }
+        },
+        {
+          "name": "Logowanie",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.token) {",
+                  "    pm.collectionVariables.set('token', body.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test1234@wp.pl\",\n  \"password\": \"test1234\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "POST /api/auth/login. 200: { token, user }. Złe dane zwracają 401. Token zapisuje się do {{token}}.\n\nKonta z seeda:\n- test1234@wp.pl / test1234\n- admin1234@wp.pl / admin1234"
+          }
+        },
+        {
+          "name": "Bieżący użytkownik",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "GET /api/auth/me. Wymaga Bearer. Zwraca { id, email, name, is_admin }."
+          }
+        },
+        {
+          "name": "Wylogowanie",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/logout",
+            "description": "POST /api/auth/logout. Zwraca 204 bez treści. Serwer nie unieważnia tokenu, więc {{token}} działa do końca ważności (7 dni)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Kategorie",
+      "item": [
+        {
+          "name": "Lista kategorii",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/categories",
+            "description": "GET /api/categories. Zwraca id, name, slug, posortowane po nazwie. Bez logowania."
+          }
+        },
+        {
+          "name": "Kategoria po slugu",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/categories/kuchnia",
+            "description": "GET /api/categories/:slug. Przykład: kuchnia. Inne slugi z seeda: elektronika, dom, sport. Brak kategorii zwraca 404."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Produkty",
+      "item": [
+        {
+          "name": "Lista produktów",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/products",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "products"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "kuchnia",
+                  "description": "Slug kategorii: kuchnia, elektronika, dom, sport.",
+                  "disabled": true
+                },
+                {
+                  "key": "search",
+                  "value": "deska",
+                  "description": "Fragment nazwy albo opisu. Znaki % i _ są wycinane.",
+                  "disabled": true
+                },
+                {
+                  "key": "sort",
+                  "value": "popularity",
+                  "description": "name, price_asc, price_desc albo popularity. Inna wartość zwraca 400.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "GET /api/products. Filtry category, search i sort są wyłączone, więc pierwsze wywołanie zwraca cały katalog. Włącz je w zakładce Params. Lista nie zwiększa licznika wyświetleń. Cena jest w groszach (price_cents)."
+          }
+        },
+        {
+          "name": "Produkt po slugu",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/products/czajnik-emaliowany",
+            "description": "GET /api/products/:slug. Zwiększa products.views o 1 i zwraca produkt już po zwiększeniu. Brak produktu zwraca 404.\n\nInne slugi z seeda: deska-debowa, sluchawki-nauszne, lampka-biurkowa, koc-welniany, wazon-ceramiczny, skakanka-stalowa, mata-treningowa."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Zamówienia",
+      "item": [
+        {
+          "name": "Lista zamówień",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders",
+            "description": "GET /api/orders. Wymaga Bearer. Zwraca zamówienia zalogowanego użytkownika, od najnowszego, razem z pozycjami."
+          }
+        },
+        {
+          "name": "Zamówienie po id",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/orders/1",
+            "description": "GET /api/orders/:id. Wymaga Bearer. Id musi być liczbą całkowitą. Cudze albo nieistniejące zamówienie zwraca 404."
+          }
+        },
+        {
+          "name": "Złóż zamówienie",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recipient_name\": \"Jan Kowalski\",\n  \"address_line\": \"Lipowa 4\",\n  \"postal_code\": \"15-001\",\n  \"city\": \"Białystok\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": "{{baseUrl}}/api/orders",
+            "description": "POST /api/orders. Wymaga Bearer. 201 zwraca zapisane zamówienie. Pola tekstowe mają najwyżej 255 znaków.\n\nPozycje biorą się z koszyka tego użytkownika w bazie, nie z treści tego żądania. Pusty koszyk zwraca 400 \"Koszyk jest pusty\". Przy sukcesie stan magazynu spada, a pozycje koszyka są kasowane."
+          }
+        }
+      ]
+    }
+  ]
+}
