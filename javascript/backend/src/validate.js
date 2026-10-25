@@ -1,11 +1,20 @@
 import { ApiError } from './errors.js'
 
+const maxTextLength = 255
+
 export function requiredText(value, label) {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new ApiError(400, 'validation', `Podaj ${label}`)
   }
 
-  return value.trim()
+  const text = value.trim()
+
+  if (text.length > maxTextLength) {
+    const fieldName = label.charAt(0).toUpperCase() + label.slice(1)
+    throw new ApiError(400, 'validation', `${fieldName} może mieć najwyżej ${maxTextLength} znaków`)
+  }
+
+  return text
 }
 
 export function requiredEmail(value) {

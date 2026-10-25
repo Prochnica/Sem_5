@@ -24,6 +24,10 @@ async function onSubmit() {
     error.value = 'Podaj imię i nazwisko.'
     return
   }
+  if (form.name.trim().length > 255 || form.email.trim().length > 255) {
+    error.value = 'Imię i email mogą mieć najwyżej 255 znaków.'
+    return
+  }
   if (form.password.length < 6) {
     error.value = 'Hasło musi mieć co najmniej 6 znaków.'
     return
@@ -49,10 +53,10 @@ async function onSubmit() {
 
     <form class="border border-line bg-card p-6" @submit.prevent="onSubmit">
       <label class="block text-sm font-semibold" for="name">Imię i nazwisko</label>
-      <input id="name" v-model="form.name" type="text" required autocomplete="name" class="mt-1 w-full border border-line bg-paper px-3 py-2" />
+      <input id="name" v-model="form.name" type="text" required maxlength="255" autocomplete="name" class="mt-1 w-full border border-line bg-paper px-3 py-2" />
 
       <label class="mt-4 block text-sm font-semibold" for="email">Email</label>
-      <input id="email" v-model="form.email" type="email" required autocomplete="email" class="mt-1 w-full border border-line bg-paper px-3 py-2" />
+      <input id="email" v-model="form.email" type="email" required maxlength="255" autocomplete="email" class="mt-1 w-full border border-line bg-paper px-3 py-2" />
 
       <label class="mt-4 block text-sm font-semibold" for="password">Hasło</label>
       <input id="password" v-model="form.password" type="password" required minlength="6" autocomplete="new-password" class="mt-1 w-full border border-line bg-paper px-3 py-2" />

@@ -7,6 +7,7 @@ import { cartLineItems, cartTotalCents } from '../state/cart.js'
 import { placeOrder } from '../state/orders.js'
 import { auth } from '../state/auth.js'
 
+const maxTextLength = 255
 const router = useRouter()
 const error = ref('')
 const submitting = ref(false)
@@ -23,8 +24,16 @@ async function onSubmit() {
     error.value = 'Podaj imię i nazwisko odbiorcy.'
     return
   }
+  if (form.recipientName.trim().length > maxTextLength) {
+    error.value = `Odbiorca może mieć najwyżej ${maxTextLength} znaków.`
+    return
+  }
   if (form.addressLine.trim().length < 3) {
     error.value = 'Podaj adres.'
+    return
+  }
+  if (form.addressLine.trim().length > maxTextLength) {
+    error.value = `Ulica i numer mogą mieć najwyżej ${maxTextLength} znaków.`
     return
   }
   if (!/^\d{2}-\d{3}$/.test(form.postalCode.trim())) {
@@ -33,6 +42,10 @@ async function onSubmit() {
   }
   if (form.city.trim().length < 2) {
     error.value = 'Podaj miejscowość.'
+    return
+  }
+  if (form.city.trim().length > maxTextLength) {
+    error.value = `Miejscowość może mieć najwyżej ${maxTextLength} znaków.`
     return
   }
 
@@ -58,10 +71,10 @@ async function onSubmit() {
       <h1 class="font-display text-4xl tracking-tight">Adres dostawy</h1>
 
       <label class="mt-6 block text-sm font-semibold" for="recipient">Odbiorca</label>
-      <input id="recipient" v-model="form.recipientName" required class="mt-1 w-full border border-line bg-card px-3 py-2" />
+      <input id="recipient" v-model="form.recipientName" required maxlength="255" class="mt-1 w-full border border-line bg-card px-3 py-2" />
 
       <label class="mt-4 block text-sm font-semibold" for="address">Ulica i numer</label>
-      <input id="address" v-model="form.addressLine" required class="mt-1 w-full border border-line bg-card px-3 py-2" />
+      <input id="address" v-model="form.addressLine" required maxlength="255" class="mt-1 w-full border border-line bg-card px-3 py-2" />
 
       <div class="mt-4 grid gap-4 sm:grid-cols-[8rem_minmax(0,1fr)]">
         <div>
@@ -70,7 +83,7 @@ async function onSubmit() {
         </div>
         <div>
           <label class="block text-sm font-semibold" for="city">Miejscowość</label>
-          <input id="city" v-model="form.city" required class="mt-1 w-full border border-line bg-card px-3 py-2" />
+          <input id="city" v-model="form.city" required maxlength="255" class="mt-1 w-full border border-line bg-card px-3 py-2" />
         </div>
       </div>
 

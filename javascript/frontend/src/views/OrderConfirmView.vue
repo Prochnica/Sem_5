@@ -54,11 +54,11 @@ watch(
     <dl class="mt-8 grid gap-4 sm:grid-cols-2">
       <div>
         <dt class="text-sm text-muted">Odbiorca</dt>
-        <dd>{{ order.recipientName }}</dd>
+        <dd class="break-all">{{ order.recipientName }}</dd>
       </div>
       <div>
         <dt class="text-sm text-muted">Adres</dt>
-        <dd>{{ order.addressLine }}, {{ order.postalCode }} {{ order.city }}</dd>
+        <dd class="break-all">{{ order.addressLine }}, {{ order.postalCode }} {{ order.city }}</dd>
       </div>
       <div>
         <dt class="text-sm text-muted">Data</dt>

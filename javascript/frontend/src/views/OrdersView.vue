@@ -38,7 +38,7 @@ onMounted(async () => {
           <p class="text-sm text-muted">{{ formatDateFromIsoString(order.createdAt) }}</p>
         </div>
         <p class="mt-1">{{ statusLabel(order.status) }}</p>
-        <p class="mt-1 text-sm text-muted">{{ order.addressLine }}, {{ order.postalCode }} {{ order.city }}</p>
+        <p class="mt-1 text-sm break-all text-muted">{{ order.addressLine }}, {{ order.postalCode }} {{ order.city }}</p>
         <ul class="mt-3 space-y-1 text-sm">
           <li v-for="item in order.items" :key="item.id">
             {{ item.productName }} × {{ item.quantity }}
