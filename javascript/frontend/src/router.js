@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { session } from './state/session.js'
+import { auth } from './state/auth.js'
 import CartView from './views/CartView.vue'
 import CatalogView from './views/CatalogView.vue'
 import CheckoutView from './views/CheckoutView.vue'
@@ -43,7 +43,7 @@ export const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.meta.requiresUser && !session.user) {
+  if (to.meta.requiresUser && !auth.user) {
     return { path: '/logowanie', query: { next: to.fullPath } }
   }
 

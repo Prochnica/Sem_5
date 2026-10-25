@@ -1,10 +1,11 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { registerAccount, session } from '../state/session.js'
+import { auth, register } from '../state/auth.js'
 
 const router = useRouter()
 const error = ref('')
+const submitting = ref(false)
 const form = reactive({
   name: '',
   email: '',
@@ -12,12 +13,12 @@ const form = reactive({
 })
 
 onMounted(() => {
-  if (session.user) {
+  if (auth.user) {
     router.replace('/')
   }
 })
 
-function onSubmit() {
+async function onSubmit() {
   error.value = ''
   if (form.name.trim().length < 2) {
     error.value = 'Podaj imię i nazwisko.'
@@ -27,12 +28,15 @@ function onSubmit() {
     error.value = 'Hasło musi mieć co najmniej 6 znaków.'
     return
   }
-  const result = registerAccount(form)
-  if (!result.ok) {
-    error.value = result.message
-    return
+  submitting.value = true
+  try {
+    await register(form)
+    router.push('/')
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Nie udało się założyć konta.'
+  } finally {
+    submitting.value = false
   }
-  router.push('/')
 }
 </script>
 
@@ -55,7 +59,7 @@ function onSubmit() {
 
       <p v-if="error" class="mt-3 text-sm text-danger" role="alert">{{ error }}</p>
 
-      <button type="submit" class="mt-6 bg-copper px-4 py-2 font-semibold text-paper hover:bg-copper-dark">
+      <button type="submit" class="mt-6 bg-copper px-4 py-2 font-semibold text-paper hover:bg-copper-dark" :disabled="submitting">
         Załóż konto
       </button>
       <p class="mt-4 text-sm">

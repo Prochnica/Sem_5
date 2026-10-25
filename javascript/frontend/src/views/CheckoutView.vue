@@ -5,12 +5,12 @@ import EmptyState from '../components/EmptyState.vue'
 import { formatPriceFromCents } from '../lib/money.js'
 import { cartLineItems, cartTotalCents } from '../state/cart.js'
 import { placeOrder } from '../state/orders.js'
-import { session } from '../state/session.js'
+import { auth } from '../state/auth.js'
 
 const router = useRouter()
 const error = ref('')
 const form = reactive({
-  recipientName: session.user?.name ?? '',
+  recipientName: auth.user?.name ?? '',
   addressLine: '',
   postalCode: '',
   city: '',

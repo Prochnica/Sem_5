@@ -3,7 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { categories } from '../data/catalog.js'
 import { cartCount } from '../state/cart.js'
-import { logout, session } from '../state/session.js'
+import { auth, logout } from '../state/auth.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,7 +16,7 @@ watch(
   },
 )
 
-const accountLabel = computed(() => session.user?.name ?? 'Logowanie')
+const accountLabel = computed(() => auth.user?.name ?? 'Logowanie')
 
 function onSearch() {
   const trimmedSearchText = searchText.value.trim()
@@ -48,10 +48,10 @@ function onLogout() {
 
       <nav class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
         <router-link to="/koszyk" class="hover:text-copper">Koszyk ({{ cartCount }})</router-link>
-        <router-link v-if="session.user" to="/konto/zamowienia" class="hover:text-copper">Zamówienia</router-link>
-        <router-link v-if="!session.user" to="/logowanie" class="hover:text-copper">{{ accountLabel }}</router-link>
-        <span v-else :class="session.user.isAdmin ? 'administrator-name' : 'text-paper/80'">{{ accountLabel }}</span>
-        <button v-if="session.user" type="button" class="hover:text-copper" @click="onLogout">Wyloguj</button>
+        <router-link v-if="auth.user" to="/konto/zamowienia" class="hover:text-copper">Zamówienia</router-link>
+        <router-link v-if="!auth.user" to="/logowanie" class="hover:text-copper">{{ accountLabel }}</router-link>
+        <span v-else :class="auth.user.is_admin ? 'administrator-name' : 'text-paper/80'">{{ accountLabel }}</span>
+        <button v-if="auth.user" type="button" class="hover:text-copper" @click="onLogout">Wyloguj</button>
       </nav>
     </div>
     <nav class="border-t border-paper/15" aria-label="Kategorie">

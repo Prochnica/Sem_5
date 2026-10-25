@@ -5,10 +5,10 @@ import ProductPrice from '../components/ProductPrice.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
 import { formatPriceFromCents } from '../lib/money.js'
 import { cartLineItems, cartTotalCents, changeCartQuantity, removeCartItem } from '../state/cart.js'
-import { session } from '../state/session.js'
+import { auth } from '../state/auth.js'
 
 const checkoutRoute = computed(() => {
-  if (session.user) {
+  if (auth.user) {
     return '/zamowienie'
   }
   return { path: '/logowanie', query: { next: '/zamowienie' } }
@@ -49,6 +49,6 @@ const checkoutRoute = computed(() => {
         Złóż zamówienie
       </router-link>
     </div>
-    <p v-if="!session.user" class="mt-3 text-sm text-muted">Do złożenia zamówienia trzeba się zalogować.</p>
+    <p v-if="!auth.user" class="mt-3 text-sm text-muted">Do złożenia zamówienia trzeba się zalogować.</p>
   </section>
 </template>

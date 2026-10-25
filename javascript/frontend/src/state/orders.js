@@ -1,6 +1,6 @@
 import { reactive, watch } from 'vue'
 import { cartLineItems, cartTotalCents, clearCart } from './cart.js'
-import { session } from './session.js'
+import { auth } from './auth.js'
 
 const storageKey = 'emarket-orders'
 const lastKey = 'emarket-last-order'
@@ -63,10 +63,10 @@ watch(
 )
 
 export function ordersForCurrentUser() {
-  if (!session.user) {
+  if (!auth.user) {
     return []
   }
-  return orderBook.list.filter((order) => order.email === session.user.email)
+  return orderBook.list.filter((order) => order.email === auth.user.email)
 }
 
 export function orderById(id) {
@@ -74,7 +74,7 @@ export function orderById(id) {
 }
 
 export function placeOrder(form) {
-  if (!session.user) {
+  if (!auth.user) {
     return { ok: false, message: 'Zaloguj się, żeby złożyć zamówienie.' }
   }
   if (cartLineItems.value.length === 0) {
@@ -83,7 +83,7 @@ export function placeOrder(form) {
 
   const order = {
     id: `EM-${crypto.randomUUID()}`,
-    email: session.user.email,
+    email: auth.user.email,
     status: 'zlozone',
     recipientName: form.recipientName.trim(),
     addressLine: form.addressLine.trim(),
