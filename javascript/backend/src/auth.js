@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { getDatabase } from './db/database.js'
 import { ApiError } from './errors.js'
+import { findPublicUserById } from './repositories/userRepository.js'
 
 const tokenSecret = process.env.JWT_SECRET || 'emarket-dev-secret'
 
@@ -17,17 +17,8 @@ export function signToken(userId) {
   return jwt.sign({ userId }, tokenSecret, { expiresIn: '7d' })
 }
 
-export function publicUser(user) {
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    is_admin: user.is_admin,
-  }
-}
-
-export function requireUser(req, res, next) {
-  const header = req.get('authorization') || ''
+export function requireUser(request, response, next) {
+  const header = request.get('authorization') || ''
   const match = header.match(/^Bearer (.+)$/i)
 
   if (!match) {
@@ -44,15 +35,13 @@ export function requireUser(req, res, next) {
     return
   }
 
-  const user = getDatabase()
-    .prepare('SELECT id, email, name, is_admin FROM users WHERE id = ?')
-    .get(userId)
+  const user = findPublicUserById(userId)
 
   if (!user) {
     next(new ApiError(401, 'unauthorized', 'Użytkownik nie istnieje'))
     return
   }
 
-  req.user = user
+  request.user = user
   next()
 }

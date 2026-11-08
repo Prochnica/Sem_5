@@ -3,10 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import ProductCard from '../components/ProductCard.vue'
-import { catalog, categoryBySlug, loadProductList } from '../state/catalog.js'
+import { useCatalogStore } from '../stores/catalog.js'
 
 const route = useRoute()
 const router = useRouter()
+const catalog = useCatalogStore()
 const matchingProducts = ref([])
 const loading = ref(false)
 const error = ref('')
@@ -14,7 +15,7 @@ let requestId = 0
 
 const category = computed(() => {
   const slug = route.params.slug
-  return typeof slug === 'string' ? categoryBySlug(slug) : null
+  return typeof slug === 'string' ? catalog.categoryBySlug(slug) : null
 })
 
 const missingCategory = computed(() => typeof route.params.slug === 'string' && catalog.loaded && !category.value)
@@ -68,7 +69,7 @@ watch(
     loading.value = true
     error.value = ''
     try {
-      const products = await loadProductList({
+      const products = await catalog.loadProductList({
         categorySlug: category.value?.slug,
         searchText: searchText.value,
         sort: sort.value,

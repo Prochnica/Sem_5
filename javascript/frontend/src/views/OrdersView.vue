@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue'
 import EmptyState from '../components/EmptyState.vue'
 import { formatDateFromIsoString, formatPriceFromCents } from '../lib/money.js'
 import { statusLabel } from '../lib/orderStatus.js'
-import { loadOrders } from '../state/orders.js'
+import { useOrdersStore } from '../stores/orders.js'
+
+const ordersStore = useOrdersStore()
 
 const orders = ref([])
 const loading = ref(true)
@@ -11,7 +13,7 @@ const error = ref('')
 
 onMounted(async () => {
   try {
-    orders.value = await loadOrders()
+    orders.value = await ordersStore.loadOrders()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Nie udało się wczytać zamówień.'
   } finally {

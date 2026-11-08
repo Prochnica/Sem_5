@@ -2,10 +2,11 @@
 import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { safeRedirectPath } from '../lib/safeRedirectPath.js'
-import { auth, login } from '../state/auth.js'
+import { useAuthStore } from '../stores/auth.js'
 
 const route = useRoute()
 const router = useRouter()
+const auth = useAuthStore()
 
 const email = ref('')
 const password = ref('')
@@ -22,7 +23,7 @@ async function onSubmit() {
   error.value = ''
   submitting.value = true
   try {
-    await login(email.value, password.value)
+    await auth.login(email.value, password.value)
     router.push(safeRedirectPath(route.query.next))
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Nie udało się zalogować.'

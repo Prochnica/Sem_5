@@ -1,9 +1,13 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { catalog } from '../state/catalog.js'
-import { cartCount } from '../state/cart.js'
-import { auth, logout } from '../state/auth.js'
+import { useAuthStore } from '../stores/auth.js'
+import { useCartStore } from '../stores/cart.js'
+import { useCatalogStore } from '../stores/catalog.js'
+
+const auth = useAuthStore()
+const cart = useCartStore()
+const catalog = useCatalogStore()
 
 const route = useRoute()
 const router = useRouter()
@@ -24,7 +28,7 @@ function onSearch() {
 }
 
 function onLogout() {
-  logout()
+  auth.logout()
   router.push('/')
 }
 </script>
@@ -47,7 +51,7 @@ function onLogout() {
       </form>
 
       <nav class="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
-        <router-link to="/koszyk" class="hover:text-copper">Koszyk ({{ cartCount }})</router-link>
+        <router-link to="/koszyk" class="hover:text-copper">Koszyk ({{ cart.count }})</router-link>
         <router-link v-if="auth.user" to="/konto/zamowienia" class="hover:text-copper">Zamówienia</router-link>
         <router-link v-if="!auth.user" to="/logowanie" class="hover:text-copper">{{ accountLabel }}</router-link>
         <span v-else :class="auth.user.is_admin ? 'administrator-name' : 'text-paper/80'">{{ accountLabel }}</span>

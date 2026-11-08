@@ -1,19 +1,22 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { categoryById } from '../state/catalog.js'
-import { addCartItem } from '../state/cart.js'
+import { useCartStore } from '../stores/cart.js'
+import { useCatalogStore } from '../stores/catalog.js'
 import ProductPrice from './ProductPrice.vue'
+
+const catalog = useCatalogStore()
+const cart = useCartStore()
 
 const props = defineProps({
   product: { type: Object, required: true },
 })
 
-const category = computed(() => categoryById(props.product.categoryId))
+const category = computed(() => catalog.categoryById(props.product.categoryId))
 const initial = computed(() => props.product.name.slice(0, 1))
 const notice = ref('')
 
 function onAdd() {
-  const result = addCartItem(props.product.id, 1)
+  const result = cart.addItem(props.product.id, 1)
   notice.value = result.ok ? 'Dodane.' : result.message
 }
 </script>

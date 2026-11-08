@@ -4,7 +4,9 @@ import { useRoute } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import { formatDateFromIsoString, formatPriceFromCents } from '../lib/money.js'
 import { statusLabel } from '../lib/orderStatus.js'
-import { loadOrder } from '../state/orders.js'
+import { useOrdersStore } from '../stores/orders.js'
+
+const ordersStore = useOrdersStore()
 
 const route = useRoute()
 const order = ref(null)
@@ -23,7 +25,7 @@ watch(
     loading.value = true
     error.value = ''
     try {
-      order.value = await loadOrder(id)
+      order.value = await ordersStore.loadOrder(id)
     } catch (cause) {
       order.value = null
       error.value = cause instanceof Error ? cause.message : 'Nie udało się wczytać zamówienia.'

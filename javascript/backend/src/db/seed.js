@@ -1,13 +1,15 @@
 import bcrypt from 'bcryptjs'
+import { eq, sql } from 'drizzle-orm'
+import { categories, products, users } from './schema.js'
 
-const categories = [
+const categoryRows = [
   { name: 'Kuchnia', slug: 'kuchnia' },
   { name: 'Elektronika', slug: 'elektronika' },
   { name: 'Dom', slug: 'dom' },
   { name: 'Sport', slug: 'sport' },
 ]
 
-const products = [
+const productRows = [
   {
     categorySlug: 'kuchnia',
     name: 'Czajnik emaliowany 2 l',
@@ -74,49 +76,49 @@ const products = [
   },
 ]
 
-export function seedIfEmpty(database) {
-  const categoriesCount = database.prepare('SELECT COUNT(*) AS count FROM categories').get()
+export function seedIfEmpty(db) {
+  const row = db.select({ count: sql`count(*)`.mapWith(Number) }).from(categories).get()
 
-  if (categoriesCount.count > 0) {
+  if (Number(row?.count ?? 0) > 0) {
     return
   }
 
   const now = new Date().toISOString()
-  const insertCategory = database.prepare('INSERT INTO categories (name, slug) VALUES (?, ?)')
-  const insertProduct = database.prepare(`
-    INSERT INTO products (category_id, name, slug, description, price_cents, stock, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `)
-  const insertUser = database.prepare(`
-    INSERT INTO users (email, password_hash, name, is_admin, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `)
 
-  database.exec('BEGIN')
-
-  try {
-    for (const category of categories) {
-      insertCategory.run(category.name, category.slug)
+  db.transaction((tx) => {
+    for (const category of categoryRows) {
+      tx.insert(categories).values(category).run()
     }
 
-    for (const product of products) {
-      const category = database.prepare('SELECT id FROM categories WHERE slug = ?').get(product.categorySlug)
-      insertProduct.run(
-        category.id,
-        product.name,
-        product.slug,
-        product.description,
-        product.priceCents,
-        product.stock,
-        now,
-      )
+    for (const product of productRows) {
+      const category = tx.select({ id: categories.id }).from(categories).where(eq(categories.slug, product.categorySlug)).get()
+      tx.insert(products).values({
+        category_id: category.id,
+        name: product.name,
+        slug: product.slug,
+        description: product.description,
+        price_cents: product.priceCents,
+        stock: product.stock,
+        views: 0,
+        created_at: now,
+      }).run()
     }
 
-    insertUser.run('test1234@wp.pl', bcrypt.hashSync('test1234', 10), 'Jan Kowalski', 0, now)
-    insertUser.run('admin1234@wp.pl', bcrypt.hashSync('admin1234', 10), 'Zbigniew Kowalski', 1, now)
-    database.exec('COMMIT')
-  } catch (error) {
-    database.exec('ROLLBACK')
-    throw error
-  }
+    tx.insert(users).values([
+      {
+        email: 'test1234@wp.pl',
+        password_hash: bcrypt.hashSync('test1234', 10),
+        name: 'Jan Kowalski',
+        is_admin: 0,
+        created_at: now,
+      },
+      {
+        email: 'admin1234@wp.pl',
+        password_hash: bcrypt.hashSync('admin1234', 10),
+        name: 'Zbigniew Kowalski',
+        is_admin: 1,
+        created_at: now,
+      },
+    ]).run()
+  })
 }

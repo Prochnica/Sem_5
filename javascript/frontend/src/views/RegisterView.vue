@@ -1,9 +1,10 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { auth, register } from '../state/auth.js'
+import { useAuthStore } from '../stores/auth.js'
 
 const router = useRouter()
+const auth = useAuthStore()
 const error = ref('')
 const submitting = ref(false)
 const form = reactive({
@@ -34,7 +35,7 @@ async function onSubmit() {
   }
   submitting.value = true
   try {
-    await register(form)
+    await auth.register(form)
     router.push('/')
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Nie udało się założyć konta.'

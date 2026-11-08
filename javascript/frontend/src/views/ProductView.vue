@@ -4,10 +4,12 @@ import { useRoute } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import ProductPrice from '../components/ProductPrice.vue'
 import QuantityStepper from '../components/QuantityStepper.vue'
-import { categoryById, loadProductBySlug } from '../state/catalog.js'
-import { addCartItem } from '../state/cart.js'
+import { useCartStore } from '../stores/cart.js'
+import { useCatalogStore } from '../stores/catalog.js'
 
 const route = useRoute()
+const catalog = useCatalogStore()
+const cart = useCartStore()
 const quantity = ref(1)
 const notice = ref('')
 const product = ref(null)
@@ -15,7 +17,7 @@ const loading = ref(true)
 const error = ref('')
 let requestId = 0
 
-const category = computed(() => (product.value ? categoryById(product.value.categoryId) : null))
+const category = computed(() => (product.value ? catalog.categoryById(product.value.categoryId) : null))
 const initial = computed(() => product.value?.name.slice(0, 1) ?? '')
 
 watch(
@@ -29,7 +31,7 @@ watch(
     error.value = ''
     product.value = null
     try {
-      const loaded = await loadProductBySlug(String(slug ?? ''))
+      const loaded = await catalog.loadProductBySlug(String(slug ?? ''))
       if (currentRequest !== requestId) {
         return
       }
@@ -52,7 +54,7 @@ function onAdd() {
   if (!product.value) {
     return
   }
-  const result = addCartItem(product.value.id, quantity.value)
+  const result = cart.addItem(product.value.id, quantity.value)
   notice.value = result.ok ? 'Dodane do koszyka.' : result.message
 }
 </script>

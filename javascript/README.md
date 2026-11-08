@@ -12,7 +12,7 @@ Sklep nazywa się EMarket. Katalog jest ogólny: kategorie i produkty.
 
 ## Stack
 
-Node.js, Express, Vue 3, Vue Router, Tailwind 4, Docker, SQLite.
+Node.js, Express, Vue 3, Vue Router, Pinia, Tailwind 4, Docker, SQLite, Drizzle ORM, Zod.
 
 Konta przykładowe, te same w makiecie i w bazie. Oba mają te same akcje. Różnica to kolumna `users.is_admin`:
 
@@ -47,20 +47,26 @@ javascript/
   README.md
   development/docker-compose.yml
   backend/
+    drizzle.config.js
+    drizzle/           migracje SQL Drizzle
     src/index.js
-    src/auth.js        JWT, hasło, requireUser
     src/errors.js      ApiError i middleware błędów
-    src/routes/        auth, categories, products, cart, orders
-    src/db/migrations/ pliki SQL odpalane po kolei
-    src/db/database.js otwarcie bazy
-    src/db/migrate.js
+    src/openapi.js
+    src/auth.js        hasło, JWT, requireUser
+    src/validate.js    Zod na body, query i params
+    src/schemas/       schematy Zod
+    src/routes/        cienkie routy: auth, categories, products, cart, orders
+    src/services/      reguły sklepu
+    src/repositories/  zapytania
+    src/db/schema.js   tabele Drizzle
+    src/db/client.js   połączenie, migracja, seed
     src/db/seed.js
     data/              emarket.sqlite, poza gitem
   frontend/
     src/views/         widoki sklepu
     src/components/
-    src/data/catalog.js
-    src/state/         lokalny koszyk, sesja, zamówienia
+    src/stores/        Pinia: sesja, katalog, koszyk, zamówienia
+    src/lib/
 ```
 
 ## MVP

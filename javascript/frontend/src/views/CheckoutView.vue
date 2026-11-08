@@ -3,12 +3,15 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import EmptyState from '../components/EmptyState.vue'
 import { formatPriceFromCents } from '../lib/money.js'
-import { cartLineItems, cartTotalCents } from '../state/cart.js'
-import { placeOrder } from '../state/orders.js'
-import { auth } from '../state/auth.js'
+import { useAuthStore } from '../stores/auth.js'
+import { useCartStore } from '../stores/cart.js'
+import { useOrdersStore } from '../stores/orders.js'
 
 const maxTextLength = 255
 const router = useRouter()
+const auth = useAuthStore()
+const cart = useCartStore()
+const orders = useOrdersStore()
 const error = ref('')
 const submitting = ref(false)
 const form = reactive({
@@ -51,7 +54,7 @@ async function onSubmit() {
 
   submitting.value = true
   try {
-    const order = await placeOrder(form)
+    const order = await orders.placeOrder(form)
     router.push({ path: '/zamowienie/potwierdzenie', query: { id: String(order.id) } })
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Nie udało się złożyć zamówienia.'
@@ -62,7 +65,7 @@ async function onSubmit() {
 </script>
 
 <template>
-  <EmptyState v-if="cartLineItems.length === 0" title="Koszyk jest pusty" text="Nie ma czego zamawiać.">
+  <EmptyState v-if="cart.lineItems.length === 0" title="Koszyk jest pusty" text="Nie ma czego zamawiać.">
     <router-link to="/" class="font-semibold text-copper-dark underline">Wróć do katalogu</router-link>
   </EmptyState>
 
@@ -97,14 +100,14 @@ async function onSubmit() {
     <aside class="h-fit border border-line bg-card p-4">
       <h2 class="font-display text-2xl">Podsumowanie</h2>
       <ul class="mt-4 space-y-3 text-sm">
-        <li v-for="cartLine in cartLineItems" :key="cartLine.product.id" class="flex justify-between gap-3">
+        <li v-for="cartLine in cart.lineItems" :key="cartLine.product.id" class="flex justify-between gap-3">
           <span>{{ cartLine.product.name }} × {{ cartLine.quantity }}</span>
           <span class="tabular-nums">{{ formatPriceFromCents(cartLine.lineTotalCents) }}</span>
         </li>
       </ul>
       <p class="mt-4 flex justify-between border-t border-line pt-3 font-semibold">
         <span>Razem</span>
-        <span class="tabular-nums">{{ formatPriceFromCents(cartTotalCents) }}</span>
+        <span class="tabular-nums">{{ formatPriceFromCents(cart.totalCents) }}</span>
       </p>
     </aside>
   </section>
